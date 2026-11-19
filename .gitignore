@@ -1,0 +1,9 @@
+.git/
+vendor/
+.env
+.env.*
+*.log
+*.sqlite
+*.db
+public/uploads/*
+!public/uploads/.htaccess
