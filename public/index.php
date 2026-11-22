@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../app/session.php';
 require_once __DIR__ . '/../app/db.php';
+require_once __DIR__ . '/../app/partners.php';
 $pdo = db();
 $settings = [];
 try { foreach ($pdo->query('SELECT setting_key, setting_value FROM site_settings')->fetchAll() as $setting) $settings[$setting['setting_key']] = $setting['setting_value']; } catch (Throwable $ignored) {}
@@ -85,16 +86,75 @@ function e($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 <header class="header"><div class="container nav-wrap">
 <a class="brand" href="#inicio"><span class="brand-mark"><i class="bi bi-buildings"></i></span><span><?= e($setting('company_name','Moz Construções')) ?><small><?= e($setting('company_tagline','CONSTRUÇÃO & ENGENHARIA')) ?></small></span></a>
 <button class="menu-toggle" id="menuToggle" aria-label="Abrir menu"><i class="bi bi-list"></i></button>
-<nav id="mainNav"><a href="#inicio">Início</a><a href="#sobre">Sobre nós</a><a href="#servicos">Serviços</a><a href="#projectos">Projectos</a><a href="#galeria">Obras em andamento</a><a href="blog/">Blog</a><a href="#contactos">Contactos</a><a class="nav-cta" href="#orcamento">Solicitar orçamento <i class="bi bi-arrow-up-right"></i></a></nav>
+<nav id="mainNav"><a href="#inicio">Início</a><a href="#sobre">Sobre nós</a><a href="#servicos">Serviços</a><a href="#projectos">Projectos</a>
+<!-- <a href="#galeria">Obras em andamento</a> -->
+<a href="blog/">Blog</a><a href="#contactos">Contactos</a><a class="nav-cta" href="#orcamento">Solicitar orçamento <i class="bi bi-arrow-up-right"></i></a></nav>
 </div></header>
 <main>
 <section class="hero" id="inicio" <?= $setting('hero_image') ? 'style="background-image:url(\''.e($setting('hero_image')).'\')"' : '' ?>><div class="hero-shade"></div><div class="container hero-content"><span class="eyebrow light"><i></i> ENGENHARIA • CONSTRUÇÃO • CONFIANÇA</span><h1><?= e($setting('hero_title','Construímos hoje o futuro que imagina.')) ?></h1><p><?= e($setting('hero_description','Da ideia à concretização, entregamos soluções de construção com qualidade, rigor técnico e compromisso.')) ?></p><div class="hero-actions"><a class="btn btn-primary" href="#orcamento">Peça um orçamento <i class="bi bi-arrow-right"></i></a><a class="btn btn-outline" href="#projectos">Conheça os projectos</a></div><div class="hero-note"><i class="bi bi-shield-check"></i> Qualidade, segurança e confiança em cada etapa.</div></div><div class="hero-counter"><strong><?= number_format($visitors,0,',','.') ?></strong><span>visitas registadas</span></div></section>
 
 <section class="trust-strip"><div class="container trust-grid"><div><i class="bi bi-award"></i><span><b>Qualidade</b><small>Excelência nos detalhes</small></span></div><div><i class="bi bi-shield-check"></i><span><b>Segurança</b><small>Trabalho responsável</small></span></div><div><i class="bi bi-clock-history"></i><span><b>Compromisso</b><small>Respeito pelos prazos</small></span></div><div><i class="bi bi-people"></i><span><b>Proximidade</b><small>O cliente em primeiro lugar</small></span></div></div></section>
 
-<section class="section" id="sobre"><div class="container about-grid"><div class="about-visual"><img src="<?= e($setting('about_image') ? $setting('about_image') : 'https://images.unsplash.com/photo-1503387762-592dea58ef23?auto=format&fit=crop&w=1100&q=85') ?>" alt="Arquitectura e construção moderna"><div class="experience-card"><strong>100%</strong><span>Dedicação em cada projecto</span></div></div><div class="about-copy"><span class="eyebrow">SOBRE A EMPRESA</span><h2><?= e($setting('about_title','Mais do que construir, criamos confiança.')) ?></h2><p class="lead"><?= e($setting('company_description','Somos uma empresa orientada para soluções de construção, engenharia e reabilitação, comprometida com a qualidade e a satisfação dos nossos clientes.')) ?></p><p><?= e($setting('about_text','Aliamos conhecimento técnico, planeamento e acompanhamento próximo para transformar necessidades em espaços funcionais, seguros e duradouros.')) ?></p><div class="about-points"><div><i class="bi bi-check-circle-fill"></i> Acompanhamento técnico</div><div><i class="bi bi-check-circle-fill"></i> Materiais e execução de qualidade</div><div><i class="bi bi-check-circle-fill"></i> Soluções ajustadas a cada cliente</div></div><a class="text-link" href="#contactos">Fale connosco <i class="bi bi-arrow-right"></i></a></div></div></section>
+<section class="section" id="sobre">
+  <div class="container about-grid"><div class="about-visual"><img src="assets/imagem/about_image.jpg" alt="Arquitectura e construção moderna"><div class="experience-card"><strong>100%</strong><span>Dedicação em cada projecto</span></div></div><div class="about-copy"><span class="eyebrow">SOBRE A EMPRESA</span><h2><?= e($setting('about_title','Mais do que construir, criamos confiança.')) ?></h2><p class="lead"><?= e($setting('company_description','Somos uma empresa orientada para soluções de construção, engenharia e reabilitação, comprometida com a qualidade e a satisfação dos nossos clientes.')) ?></p><p><?= e($setting('about_text','Aliamos conhecimento técnico, planeamento e acompanhamento próximo para transformar necessidades em espaços funcionais, seguros e duradouros.')) ?></p><div class="about-points"><div><i class="bi bi-check-circle-fill"></i> Acompanhamento técnico</div><div><i class="bi bi-check-circle-fill"></i> Materiais e execução de qualidade</div><div><i class="bi bi-check-circle-fill"></i> Soluções ajustadas a cada cliente</div></div><a class="text-link" href="#contactos">Fale connosco <i class="bi bi-arrow-right"></i></a></div></div></section>
 
 <section class="section section-soft company-principles" id="empresa"><div class="container"><div class="section-heading"><div><span class="eyebrow">A NOSSA IDENTIDADE</span><h2>Os princípios que<br><em>orientam o nosso trabalho.</em></h2></div><p>Mais do que construir, queremos criar valor duradouro para os nossos clientes, parceiros e comunidades.</p></div><div class="principle-grid"><article class="principle-card"><div class="principle-icon"><i class="bi bi-bullseye"></i></div><span class="principle-label">01 · PROPÓSITO</span><h3>Missão</h3><p>Executar projectos de construção e engenharia com qualidade, segurança e responsabilidade, transformando as necessidades dos nossos clientes em soluções duradouras.</p></article><article class="principle-card"><div class="principle-icon"><i class="bi bi-eye"></i></div><span class="principle-label">02 · FUTURO</span><h3>Visão</h3><p>Ser uma empresa de referência no sector da construção, reconhecida pela confiança, excelência técnica e contributo para o desenvolvimento sustentável.</p></article><article class="principle-card"><div class="principle-icon"><i class="bi bi-gem"></i></div><span class="principle-label">03 · COMPROMISSOS</span><h3>Valores</h3><ul class="principle-values"><li><i class="bi bi-check2"></i> Integridade e transparência</li><li><i class="bi bi-check2"></i> Qualidade e rigor técnico</li><li><i class="bi bi-check2"></i> Segurança e responsabilidade</li><li><i class="bi bi-check2"></i> Respeito pelas pessoas e pelo ambiente</li></ul></article></div></div></section>
+
+<?php
+$partnerEntries = [];
+$partnerSetting = trim($setting('partners'));
+if ($partnerSetting === '') $partnerSetting = default_site_partners();
+foreach (preg_split('/\R/', $partnerSetting) ?: [] as $partnerLine) {
+    $partnerLine = trim($partnerLine);
+    if ($partnerLine === '') continue;
+    $parts = array_map('trim', explode('|', $partnerLine));
+    $partnerEntries[] = [
+        'name' => $parts[0] ?? '',
+        'logo' => $parts[1] ?? '',
+        'url' => $parts[2] ?? '',
+    ];
+}
+if (!$partnerEntries) {
+    $partnerEntries = [['name' => 'Seja nosso parceiro', 'logo' => '', 'url' => '#orcamento']];
+}
+?>
+<section class="partners-section" id="parceiros" aria-labelledby="partnersHeading">
+  <div class="container">
+    <div class="partners-heading">
+      <div><span class="eyebrow">REDE DE COLABORAÇÃO</span><h2 id="partnersHeading">Os nossos <em>parceiros.</em></h2></div>
+      <div class="partners-controls" aria-label="Controles do carrossel">
+        <button type="button" id="partnersPrevious" aria-label="Parceiro anterior"><i class="bi bi-arrow-left"></i></button>
+        <button type="button" id="partnersNext" aria-label="Próximo parceiro"><i class="bi bi-arrow-right"></i></button>
+      </div>
+    </div>
+    <div class="partners-carousel" id="partnersCarousel">
+      <div class="partners-track">
+        <?php foreach ($partnerEntries as $partner):
+            $partnerName = trim((string)$partner['name']);
+            $partnerLogo = trim((string)$partner['logo']);
+            $partnerUrl = trim((string)$partner['url']);
+            $partnerKey = mb_strtolower($partnerName, 'UTF-8');
+            $isFeaturedPartner = in_array($partnerKey, ['flyzinho', 'computer service'], true);
+            $partnerInitials = '';
+            foreach (array_slice(preg_split('/\s+/', $partnerName, -1, PREG_SPLIT_NO_EMPTY), 0, 3) as $word) {
+                $partnerInitials .= mb_substr($word, 0, 1, 'UTF-8');
+            }
+            $tag = $partnerUrl !== '' ? 'a' : 'div';
+        ?>
+        <<?= $tag ?> class="partner-card<?= $isFeaturedPartner ? ' partner-featured' : '' ?><?= $partnerKey === 'flyzinho' ? ' partner-flyzinho' : '' ?>"<?= $tag === 'a' ? ' href="'.e($partnerUrl).'"'.(($partnerUrl !== '#orcamento') ? ' target="_blank" rel="noopener"' : '') : '' ?>>
+          <?php if ($partnerLogo !== ''): ?>
+            <img<?= $partnerKey === 'flyzinho' ? ' class="partner-logo-flyzinho"' : '' ?> src="<?= e($partnerLogo) ?>" alt="Logótipo de <?= e($partnerName) ?>">
+          <?php else: ?>
+            <span class="partner-monogram"><?= e(mb_strtoupper($partnerInitials, 'UTF-8')) ?></span>
+          <?php endif; ?>
+          <strong><?= e($partnerName) ?></strong>
+          <?php if ($isFeaturedPartner): ?><small class="partner-featured-label">Parceiro em destaque</small><?php endif; ?>
+        </<?= $tag ?>>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </div>
+</section>
 
 <section class="section section-soft" id="servicos"><div class="container"><div class="section-heading"><div><span class="eyebrow">O QUE FAZEMOS</span><h2>Soluções completas<br><em>para construir melhor.</em></h2></div><p>Serviços pensados para acompanhar cada etapa do seu projecto, desde o planeamento até à entrega.</p></div><div class="service-grid">
 <?php foreach($services as $s): ?><article class="service-card"><div class="service-icon"><i class="bi <?= e($s['icon']) ?>"></i></div><h3><?= e($s['title']) ?></h3><p><?= e($s['description']) ?></p><a href="#orcamento" aria-label="Solicitar <?= e($s['title']) ?>">Solicitar serviço <i class="bi bi-arrow-up-right"></i></a></article><?php endforeach; ?>
@@ -187,7 +247,7 @@ function e($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 <button class="btn btn-primary btn-full" type="submit">Enviar pedido <i class="bi bi-send"></i></button><small class="privacy-note">Os seus dados serão utilizados apenas para responder ao pedido.</small></form></div></section>
 <?php if($blogPosts): ?><section class="section section-soft"><div class="container"><div class="section-heading"><div><span class="eyebrow">BLOG</span><h2>Conhecimento que<br><em>constrói valor.</em></h2></div><p>Artigos, dicas e novidades sobre construção civil e engenharia.</p></div><div class="project-grid"><?php foreach($blogPosts as $bp): ?><article class="project-card"><div class="project-image"><?php if($bp['cover_image']): ?><img src="<?= e($bp['cover_image']) ?>" alt="<?= e($bp['title']) ?>"><?php endif; ?></div><div class="project-info"><small><?= e(date('d/m/Y',strtotime($bp['published_at']))) ?></small><h3><?= e($bp['title']) ?></h3><p><?= e($bp['excerpt']) ?></p><a class="text-link" href="blog/post.php?slug=<?= rawurlencode($bp['slug']) ?>">Ler artigo <i class="bi bi-arrow-right"></i></a></div></article><?php endforeach; ?></div><p style="text-align:center;margin-top:25px"><a class="btn btn-primary" href="blog/">Ver todos os artigos</a></p></div></section><?php endif; ?>
 </main>
-<footer class="footer" id="contactos"><div class="container footer-grid"><div class="footer-brand"><a class="brand brand-light" href="#inicio"><span class="brand-mark"><i class="bi bi-buildings"></i></span><span><?= e($setting('company_name','Moz Construções')) ?><small><?= e($setting('company_tagline','CONSTRUÇÃO & ENGENHARIA')) ?></small></span></a><p>Construção, engenharia e soluções que criam valor e confiança.</p></div><div><h4>Links rápidos</h4><a href="#sobre">Sobre nós</a><a href="#servicos">Serviços</a><a href="#projectos">Projectos</a><a href="#galeria">Obras em andamento</a><a href="blog/">Blog</a><a href="#orcamento">Solicitar orçamento</a></div><div><h4>Contactos</h4><span><i class="bi bi-geo-alt"></i> <?= e($setting('address','Maputo, Moçambique')) ?></span><span><i class="bi bi-telephone"></i> <?= e($setting('phone','+258 84 000 0000')) ?></span><span><i class="bi bi-envelope"></i> <?= e($setting('email','contacto@horizonte.co.mz')) ?></span></div><div><h4>Horário</h4><span><?= e($setting('opening_hours','Segunda – Sexta | 08:00 – 17:00')) ?></span><a href="admin/login.php">Área administrativa</a></div></div><div class="container copyright"><span>© <?= date('Y') ?> Moz Construções. Todos os direitos reservados.</span><span>Construímos confiança.</span></div></footer>
+<footer class="footer" id="contactos"><div class="container footer-grid"><div class="footer-brand"><a class="brand brand-light" href="#inicio"><span class="brand-mark"><i class="bi bi-buildings"></i></span><span><?= e($setting('company_name','Moz Construções')) ?><small><?= e($setting('company_tagline','CONSTRUÇÃO & ENGENHARIA')) ?></small></span></a><p>Construção, engenharia e soluções que criam valor e confiança.</p></div><div><h4>Links rápidos</h4><a href="#sobre">Sobre nós</a><a href="#servicos">Serviços</a><a href="#projectos">Projectos</a><a href="#galeria">Obras em andamento</a><a href="blog/">Blog</a><a href="#orcamento">Solicitar orçamento</a></div><div><h4>Contactos</h4><span><i class="bi bi-geo-alt"></i> <?= e($setting('address','Maputo, Moçambique')) ?></span><span><i class="bi bi-telephone"></i> <?= e($setting('phone','+258 84 000 0000')) ?></span><span><i class="bi bi-envelope"></i> <?= e($setting('email','contacto@horizonte.co.mz')) ?></span></div><div><h4>Horário</h4><span><?= e($setting('opening_hours','Segunda – Sexta | 08:00 – 17:00')) ?></span><a href="admin/login.php">Área administrativa</a></div></div><div class="container copyright"><span>© <?= date('Y') ?> Moz Construções. Todos os direitos reservados. <strong>Design by Flyzinho</strong></span><span>Construímos confiança. </span></div></footer>
 
 <div class="wa-widget"><div class="wa-pop" id="waPop"><strong>Olá! Como podemos ajudar?</strong><p>Escolha um assunto para iniciar a conversa.</p><a data-msg="Olá! Gostaria de solicitar um orçamento." href="#">Solicitar orçamento</a><a data-msg="Olá! Gostaria de conhecer os vossos serviços." href="#">Conhecer serviços</a><a data-msg="Olá! Pretendo falar com um representante." href="#">Falar com representante</a></div><button id="waButton" aria-label="Abrir WhatsApp"><i class="bi bi-whatsapp"></i></button></div>
 <script>window.WA_NUMBER = "<?= e($setting('whatsapp','258840000000')) ?>";</script><script src="assets/js/main.js"></script>

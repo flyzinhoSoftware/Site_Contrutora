@@ -16,3 +16,31 @@ if(galleryLightbox){
  galleryPrevious.addEventListener('click',()=>moveGallery(-1));galleryNext.addEventListener('click',()=>moveGallery(1));
  document.addEventListener('keydown',event=>{if(galleryLightbox.hidden)return;if(event.key==='Escape'){event.preventDefault();closeGallery();}else if(event.key==='ArrowLeft'){event.preventDefault();moveGallery(-1);}else if(event.key==='ArrowRight'){event.preventDefault();moveGallery(1);}else if(event.key==='Tab'){const focusable=Array.from(galleryLightbox.querySelectorAll('button:not([disabled])'));const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}});
 }
+
+const partnersCarousel=document.getElementById('partnersCarousel');
+if(partnersCarousel){
+ const track=partnersCarousel.querySelector('.partners-track');
+ const cards=Array.from(track.querySelectorAll('.partner-card'));
+ const previous=document.getElementById('partnersPrevious');
+ const next=document.getElementById('partnersNext');
+ let partnerIndex=0;
+ function visiblePartnerCount(){
+  if(!cards.length)return 1;
+  const cardWidth=cards[0].getBoundingClientRect().width;
+  return Math.max(1,Math.floor((partnersCarousel.clientWidth+16)/(cardWidth+16)));
+ }
+ function updatePartners(){
+  if(!cards.length)return;
+  const cardWidth=cards[0].getBoundingClientRect().width;
+  const gap=parseFloat(getComputedStyle(track).gap)||16;
+  const maxIndex=Math.max(0,cards.length-visiblePartnerCount());
+  partnerIndex=Math.min(partnerIndex,maxIndex);
+  track.style.transform=`translateX(-${partnerIndex*(cardWidth+gap)}px)`;
+  previous.disabled=partnerIndex===0;
+  next.disabled=partnerIndex===maxIndex;
+ }
+ previous?.addEventListener('click',()=>{partnerIndex=Math.max(0,partnerIndex-1);updatePartners();});
+ next?.addEventListener('click',()=>{partnerIndex++;updatePartners();});
+ window.addEventListener('resize',updatePartners);
+ updatePartners();
+}
