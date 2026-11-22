@@ -16,12 +16,12 @@ $error = '';
 
 // Cada página válida possui um título próprio no painel.
 $page = (string)($_GET['page'] ?? 'inicio');
-$allowedPages = ['inicio','configuracoes','projectos','servicos','testemunhos','pedidos'];
+$allowedPages = ['inicio','configuracoes','projectos','servicos','testemunhos','pedidos','conta'];
 
 if (!in_array($page, $allowedPages, true)) {
     $page = 'inicio';
 }
-$pageTitles = ['inicio' => 'Painel principal','configuracoes' => 'Conteúdos e contactos','projectos' => 'Gestão de projectos','servicos' => 'Gestão de serviços','testemunhos' => 'Testemunhos','pedidos' => 'Pedidos de orçamento'];
+$pageTitles = ['inicio' => 'Painel principal','configuracoes' => 'Conteúdos e contactos','projectos' => 'Gestão de projectos','servicos' => 'Gestão de serviços','testemunhos' => 'Testemunhos','pedidos' => 'Pedidos de orçamento','conta' => 'Conta do administrador'];
 
 // Terminar a sessão envia o utilizador de volta ao início de sessão.
 if (isset($_GET['logout'])) {
@@ -42,6 +42,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string)($_POST['action'] ?? '');
 
     try {
+        if ($action === 'update_admin_account') {
+            $adminId = (int)($_SESSION['admin_id'] ?? 0);
+            $currentPassword = (string)($_POST['current_password'] ?? '');
+            $newEmail = trim((string)($_POST['email'] ?? ''));
+            $newPassword = (string)($_POST['new_password'] ?? '');
+            $confirmPassword = (string)($_POST['confirm_password'] ?? '');
+
+            if ($adminId < 1 || $currentPassword === '') {
+                throw new RuntimeException('Introduza a palavra-passe actual para confirmar as alterações.');
+            }
+
+            $adminQuery = $pdo->prepare('SELECT email, password FROM admins WHERE id = ? LIMIT 1');
+            $adminQuery->execute([$adminId]);
+            $adminAccount = $adminQuery->fetch();
+
+            if (!$adminAccount || !password_verify($currentPassword, $adminAccount['password'])) {
+                throw new RuntimeException('A palavra-passe actual está incorrecta.');
+            }
+
+            if (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
+                throw new RuntimeException('Introduza um endereço de e-mail válido.');
+            }
+
+            $duplicateEmail = $pdo->prepare('SELECT id FROM admins WHERE email = ? AND id <> ? LIMIT 1');
+            $duplicateEmail->execute([$newEmail, $adminId]);
+
+            if ($duplicateEmail->fetch()) {
+                throw new RuntimeException('Este endereço de e-mail já está associado a outra conta.');
+            }
+
+            $passwordHash = $adminAccount['password'];
+
+            if ($newPassword !== '' || $confirmPassword !== '') {
+                if (strlen($newPassword) < 12) {
+                    throw new RuntimeException('A nova palavra-passe deve ter pelo menos 12 caracteres.');
+                }
+
+                if (!hash_equals($newPassword, $confirmPassword)) {
+                    throw new RuntimeException('A confirmação da nova palavra-passe não corresponde.');
+                }
+
+                $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+            }
+
+            $updateAdmin = $pdo->prepare('UPDATE admins SET email = ?, password = ? WHERE id = ?');
+            $updateAdmin->execute([$newEmail, $passwordHash, $adminId]);
+
+            // Renova os identificadores da sessão após uma alteração de credenciais.
+            session_regenerate_id(true);
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+
+            admin_redirect('conta');
+        }
+
         if ($action === 'save_project') {
             $id = (int)($_POST['id'] ?? 0);
             $title = trim((string)($_POST['title'] ?? ''));
@@ -1189,6 +1243,38 @@ $dashboardStats = [
                                     class="thumb" src="../<?= admin_escape($settings['about_image']) ?>"
                                     alt="Imagem actual"><?php endif; ?></div>
                         </div><button class="btn btn-primary">Guardar conteúdos e contactos</button></form>
+                </section><?php endif; ?>
+                <?php if ($page === 'conta'): ?><section class="panel" id="conta">
+                    <h2>Dados de acesso</h2>
+                    <p>Altere o e-mail e, se desejar, defina uma nova palavra-passe. Para proteger a sua conta, confirme sempre a palavra-passe actual.</p>
+                    <form method="post" autocomplete="off">
+                        <?php edit_form('update_admin_account', 0, $csrf); ?>
+                        <?php
+                        $accountQuery = $pdo->prepare('SELECT email FROM admins WHERE id = ? LIMIT 1');
+                        $accountQuery->execute([(int)$_SESSION['admin_id']]);
+                        $accountEmail = (string)$accountQuery->fetchColumn();
+                        ?>
+                        <div class="two-col">
+                            <div>
+                                <label>E-mail da conta
+                                    <input type="email" name="email" required maxlength="190" autocomplete="username"
+                                        value="<?= admin_escape($accountEmail) ?>">
+                                </label>
+                                <label>Palavra-passe actual
+                                    <input type="password" name="current_password" required autocomplete="current-password">
+                                </label>
+                            </div>
+                            <div>
+                                <label>Nova palavra-passe <small>(opcional, mínimo 12 caracteres)</small>
+                                    <input type="password" name="new_password" minlength="12" autocomplete="new-password">
+                                </label>
+                                <label>Confirmar nova palavra-passe
+                                    <input type="password" name="confirm_password" minlength="12" autocomplete="new-password">
+                                </label>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" type="submit">Guardar dados de acesso</button>
+                    </form>
                 </section><?php endif; ?>
                 <?php if ($page === 'projectos'): ?><section class="panel" id="projectos">
                     <h2>Projectos publicados</h2>

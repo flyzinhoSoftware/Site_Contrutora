@@ -24,6 +24,7 @@ $adminCompanyName = isset($settings) && is_array($settings) ? (string)($settings
       ['testemunhos','Testemunhos','bi-chat-quote'],
       ['pedidos','Pedidos de orçamento','bi-inbox'],
       ['configuracoes','Conteúdos e contactos','bi-gear'],
+      ['conta','Conta do administrador','bi-person-gear'],
     ] as [$navPage,$navLabel,$navIcon]): ?>
         <a href="<?= $navPage === 'inicio' ? 'dashboard.php' : 'dashboard.php?page=' . $navPage ?>"
             <?= $adminPage === $navPage ? 'aria-current="page"' : '' ?>><i

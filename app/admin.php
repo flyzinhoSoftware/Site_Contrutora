@@ -84,7 +84,7 @@ function admin_verify_csrf(): void
  */
 function admin_redirect(string $anchor = ''): never
 {
-    $pages = ['configuracoes' => 'configuracoes','projectos' => 'projectos','servicos' => 'servicos','testemunhos' => 'testemunhos','pedidos' => 'pedidos'];
+    $pages = ['configuracoes' => 'configuracoes','projectos' => 'projectos','servicos' => 'servicos','testemunhos' => 'testemunhos','pedidos' => 'pedidos','conta' => 'conta'];
     $target = $pages[$anchor] ?? 'inicio';
     header('Location: dashboard.php?page=' . rawurlencode($target) . '&ok=1');
     exit;
