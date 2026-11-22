@@ -1,3 +1,11 @@
+/**
+ * public/assets/js/admin.js
+ * Interações da página explicadas em linguagem simples.
+ * Assinado por Flyzinho — toque próprio, feito com cuidado.
+ */
+
+// Menu lateral:
+// Controla a abertura no telemóvel e fecha o painel após escolher uma opção.
 const adminMenuToggle=document.getElementById('adminMenuToggle');
 const adminBackdrop=document.querySelector('.sidebar-backdrop');
 function closeAdminSidebar(){
@@ -11,6 +19,8 @@ adminMenuToggle?.addEventListener('click',()=>{
 adminBackdrop?.addEventListener('click',closeAdminSidebar);
 document.querySelectorAll('.admin-sidebar .sidebar-nav a').forEach(link=>link.addEventListener('click',closeAdminSidebar));
 
+// Janelas de diálogo:
+// Os diálogos são criados uma vez e reutilizados para edição e confirmação.
 document.body.insertAdjacentHTML('beforeend',`
  <dialog class="admin-modal" id="adminEditModal" aria-labelledby="adminEditModalTitle">
   <header class="admin-modal-header"><div><small>Editar registo</small><h2 id="adminEditModalTitle">Editar</h2></div><button type="button" class="admin-modal-close" data-modal-close aria-label="Fechar"><i class="bi bi-x-lg"></i></button></header>
@@ -23,6 +33,7 @@ document.body.insertAdjacentHTML('beforeend',`
  </dialog>
 `);
 
+// As janelas de edição e confirmação mantêm o utilizador informado.
 const adminEditModal=document.getElementById('adminEditModal');
 const adminConfirmModal=document.getElementById('adminConfirmModal');
 let adminEditPlaceholder=null;
@@ -36,6 +47,7 @@ const confirmMessages={
  delete_comment:'Tem a certeza de que pretende eliminar este comentário?',
  delete_post:'Tem a certeza de que pretende eliminar este artigo e os comentários associados?'
 };
+// Remove confirmações antigas em HTML e passa a mensagem para o nosso diálogo moderno.
 document.querySelectorAll('form[onsubmit]').forEach(form=>{
  const action=form.querySelector('input[name="action"]')?.value;
  if(!confirmMessages[action])return;
@@ -49,6 +61,7 @@ document.addEventListener('click',event=>{
   const details=summary.parentElement;
   const form=details?.querySelector('form');
   if(form){
+    // Move temporariamente o formulário para dentro da janela de edição.
    event.preventDefault();
    adminEditOpener=summary;
    adminEditPlaceholder=document.createComment('edit-form');
@@ -99,6 +112,8 @@ adminConfirmModal?.addEventListener('close',()=>{adminPendingForm=null;});
 
 const blogEditorForm=document.querySelector('[data-blog-editor]');
 if(blogEditorForm){
+ // Editor de artigos:
+ // Este bloco prepara a barra de ferramentas e guarda o texto escrito no campo oculto.
  const editor=document.getElementById('blogContentEditor');
  const source=document.getElementById('blogContentSource');
  const toolbar=blogEditorForm.querySelector('.editor-toolbar');

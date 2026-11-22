@@ -1,7 +1,19 @@
 <?php
+
+/**
+ * app/blog-notifications.php
+ * Código organizado e comentado para ser fácil de entender e manter.
+ * Assinado por Flyzinho — toque próprio, feito com cuidado.
+ */
+
+
+
 declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 
+/**
+ * Verifica se o envio de notificações por e-mail está disponível.
+ */
 function blog_email_notifications_ready(): bool
 {
     return SMTP_HOST !== ''
@@ -11,6 +23,9 @@ function blog_email_notifications_ready(): bool
         && filter_var(SMTP_FROM_EMAIL, FILTER_VALIDATE_EMAIL) !== false;
 }
 
+/**
+ * Verifica se as definições necessárias para notificações via navegador existem.
+ */
 function blog_push_notifications_ready(): bool
 {
     return preg_match('/^[A-Za-z0-9_-]{80,100}$/', VAPID_PUBLIC_KEY) === 1
@@ -19,18 +34,24 @@ function blog_push_notifications_ready(): bool
         && filter_var(substr(VAPID_SUBJECT, 7), FILTER_VALIDATE_EMAIL) !== false;
 }
 
+/**
+ * Reúne os destinatários registados para um canal de notificações específico.
+ */
 function blog_notification_recipients(PDO $pdo, string $channel): array
 {
     if ($channel === 'email') {
         return $pdo->query("SELECT u.id,u.name,u.email FROM blog_notification_preferences n INNER JOIN comment_users u ON u.id=n.user_id WHERE n.email_enabled=1 AND u.email<>''")->fetchAll();
     }
 
-    return $pdo->query("SELECT s.id,s.user_id,s.endpoint_hash,s.endpoint,s.p256dh,s.auth_token FROM blog_push_subscriptions s INNER JOIN blog_notification_preferences n ON n.user_id=s.user_id WHERE n.push_enabled=1")->fetchAll();
+    return $pdo->query('SELECT s.id,s.user_id,s.endpoint_hash,s.endpoint,s.p256dh,s.auth_token FROM blog_push_subscriptions s INNER JOIN blog_notification_preferences n ON n.user_id=s.user_id WHERE n.push_enabled=1')->fetchAll();
 }
 
+/**
+ * Envia avisos de um novo artigo por e-mail e/ou notificações push.
+ */
 function blog_send_new_post_notifications(PDO $pdo, array $post, string $url): array
 {
-    $result = ['email_sent'=>0,'email_failed'=>0,'push_sent'=>0,'push_failed'=>0];
+    $result = ['email_sent' => 0,'email_failed' => 0,'push_sent' => 0,'push_failed' => 0];
     $emails = blog_notification_recipients($pdo, 'email');
     $subscriptions = blog_notification_recipients($pdo, 'push');
 
@@ -39,10 +60,12 @@ function blog_send_new_post_notifications(PDO $pdo, array $post, string $url): a
     }
 
     $autoload = dirname(__DIR__) . '/vendor/autoload.php';
+
     if (!is_file($autoload)) {
         error_log('Blog notifications could not run: Composer dependencies are missing.');
         $result['email_failed'] = count($emails);
         $result['push_failed'] = count($subscriptions);
+
         return $result;
     }
     require_once $autoload;
@@ -58,6 +81,7 @@ function blog_send_new_post_notifications(PDO $pdo, array $post, string $url): a
                     $mailer->Host = SMTP_HOST;
                     $mailer->Port = SMTP_PORT;
                     $mailer->SMTPAuth = SMTP_USERNAME !== '';
+
                     if ($mailer->SMTPAuth) {
                         $mailer->Username = SMTP_USERNAME;
                         $mailer->Password = SMTP_PASSWORD;
@@ -113,7 +137,8 @@ function blog_send_new_post_notifications(PDO $pdo, array $post, string $url): a
                                 'auth' => (string)$subscriptionRow['auth_token'],
                             ],
                         ]);
-                        $report = $webPush->sendOneNotification($subscription, $payload, ['TTL'=>86400]);
+                        $report = $webPush->sendOneNotification($subscription, $payload, ['TTL' => 86400]);
+
                         if ($report->isSuccess()) {
                             $result['push_sent']++;
                         } else {

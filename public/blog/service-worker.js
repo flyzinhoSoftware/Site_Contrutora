@@ -1,3 +1,9 @@
+/**
+ * public/blog/service-worker.js
+ * Interações da página explicadas em linguagem simples.
+ * Assinado por Flyzinho — toque próprio, feito com cuidado.
+ */
+
 self.addEventListener('push', event => {
     if (!event.data) return;
     let data;

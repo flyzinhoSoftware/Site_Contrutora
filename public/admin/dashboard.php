@@ -1,27 +1,46 @@
 <?php
+
+/**
+ * public/admin/dashboard.php
+ * Código organizado e comentado para ser fácil de entender e manter.
+ * Assinado por Flyzinho — toque próprio, feito com cuidado.
+ */
+
+
 declare(strict_types=1);
 require_once __DIR__ . '/../../app/admin.php';
 require_once __DIR__ . '/../../app/partners.php';
 admin_require_login();
 $pdo = db();
 $error = '';
+
+// Cada página válida possui um título próprio no painel.
 $page = (string)($_GET['page'] ?? 'inicio');
 $allowedPages = ['inicio','configuracoes','projectos','servicos','testemunhos','pedidos'];
-if (!in_array($page, $allowedPages, true)) $page = 'inicio';
-$pageTitles = ['inicio'=>'Painel principal','configuracoes'=>'Conteúdos e contactos','projectos'=>'Gestão de projectos','servicos'=>'Gestão de serviços','testemunhos'=>'Testemunhos','pedidos'=>'Pedidos de orçamento'];
 
+if (!in_array($page, $allowedPages, true)) {
+    $page = 'inicio';
+}
+$pageTitles = ['inicio' => 'Painel principal','configuracoes' => 'Conteúdos e contactos','projectos' => 'Gestão de projectos','servicos' => 'Gestão de serviços','testemunhos' => 'Testemunhos','pedidos' => 'Pedidos de orçamento'];
+
+// Terminar a sessão envia o utilizador de volta ao início de sessão.
 if (isset($_GET['logout'])) {
     $_SESSION = [];
+
     if (ini_get('session.use_cookies')) {
         $p = session_get_cookie_params();
         setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
     }
-    session_destroy(); header('Location: login.php'); exit;
+    session_destroy();
+    header('Location: login.php');
+    exit;
 }
 
+// Todas as alterações feitas no painel passam por este bloco seguro.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     admin_verify_csrf();
     $action = (string)($_POST['action'] ?? '');
+
     try {
         if ($action === 'save_project') {
             $id = (int)($_POST['id'] ?? 0);
@@ -30,86 +49,205 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $category = trim((string)($_POST['category'] ?? ''));
             $description = trim((string)($_POST['description'] ?? ''));
             $status = (string)($_POST['status'] ?? 'Planeado');
-            if ($title === '' || $location === '' || $category === '' || !in_array($status, ['Concluído','Em andamento','Planeado'], true)) throw new RuntimeException('Preencha os campos obrigatórios do projecto.');
+
+            if ($title === '' || $location === '' || $category === '' || !in_array($status, ['Concluído','Em andamento','Planeado'], true)) {
+                throw new RuntimeException('Preencha os campos obrigatórios do projecto.');
+            }
             $old = null;
-            if ($id > 0) { $q=$pdo->prepare('SELECT image_url FROM projects WHERE id=?'); $q->execute([$id]); $old=$q->fetchColumn(); if ($old === false) throw new RuntimeException('Projecto não encontrado.'); }
+
+            if ($id > 0) {
+                $q = $pdo->prepare('SELECT image_url FROM projects WHERE id=?');
+                $q->execute([$id]);
+                $old = $q->fetchColumn();
+
+                if ($old === false) {
+                    throw new RuntimeException('Projecto não encontrado.');
+                }
+            }
             $uploadProvided = isset($_FILES['image_file']) && ($_FILES['image_file']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
             $externalImage = trim((string)($_POST['image_url'] ?? ''));
+
             if ($uploadProvided) {
                 $image = admin_upload_image('image_file', is_string($old) ? $old : null);
             } elseif ($externalImage !== '') {
-                if (!filter_var($externalImage, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($externalImage, PHP_URL_SCHEME)), ['http','https'], true)) throw new RuntimeException('Indique um URL de imagem válido com HTTP ou HTTPS.');
-                if (is_string($old)) admin_delete_local_image($old);
+                if (!filter_var($externalImage, FILTER_VALIDATE_URL) || !in_array(strtolower((string)parse_url($externalImage, PHP_URL_SCHEME)), ['http','https'], true)) {
+                    throw new RuntimeException('Indique um URL de imagem válido com HTTP ou HTTPS.');
+                }
+
+                if (is_string($old)) {
+                    admin_delete_local_image($old);
+                }
                 $image = $externalImage;
             } else {
                 $image = is_string($old) ? $old : null;
             }
+
             if ($id > 0) {
-                $q=$pdo->prepare('UPDATE projects SET title=?,location=?,category=?,description=?,image_url=?,status=? WHERE id=?');
+                $q = $pdo->prepare('UPDATE projects SET title=?,location=?,category=?,description=?,image_url=?,status=? WHERE id=?');
                 $q->execute([$title,$location,$category,$description,$image,$status,$id]);
                 $projectId = $id;
             } else {
-                $q=$pdo->prepare('INSERT INTO projects(title,location,category,description,image_url,status) VALUES(?,?,?,?,?,?)');
+                $q = $pdo->prepare('INSERT INTO projects(title,location,category,description,image_url,status) VALUES(?,?,?,?,?,?)');
                 $q->execute([$title,$location,$category,$description,$image,$status]);
                 $projectId = (int)$pdo->lastInsertId();
             }
             admin_upload_project_gallery('gallery_files', $projectId, $pdo);
             admin_redirect('projectos');
         }
+
         if ($action === 'delete_project') {
-            $id=(int)($_POST['id'] ?? 0);
-            $q=$pdo->prepare('SELECT image_url FROM projects WHERE id=?');$q->execute([$id]);$img=$q->fetchColumn();
-            $gallery=$pdo->prepare('SELECT image_path FROM project_images WHERE project_id=?');$gallery->execute([$id]);
-            foreach($gallery->fetchAll(PDO::FETCH_COLUMN) as $galleryImage) admin_delete_local_image((string)$galleryImage);
-            $q=$pdo->prepare('DELETE FROM projects WHERE id=?');$q->execute([$id]);
-            if(is_string($img)) admin_delete_local_image($img);
+            $id = (int)($_POST['id'] ?? 0);
+            $q = $pdo->prepare('SELECT image_url FROM projects WHERE id=?');
+            $q->execute([$id]);
+            $img = $q->fetchColumn();
+            $gallery = $pdo->prepare('SELECT image_path FROM project_images WHERE project_id=?');
+            $gallery->execute([$id]);
+
+            foreach ($gallery->fetchAll(PDO::FETCH_COLUMN) as $galleryImage) {
+                admin_delete_local_image((string)$galleryImage);
+            }
+            $q = $pdo->prepare('DELETE FROM projects WHERE id=?');
+            $q->execute([$id]);
+
+            if (is_string($img)) {
+                admin_delete_local_image($img);
+            }
             admin_redirect('projectos');
         }
+
         if ($action === 'save_service') {
-            $id=(int)($_POST['id'] ?? 0);$title=trim((string)($_POST['title'] ?? ''));$description=trim((string)($_POST['description'] ?? ''));$icon=trim((string)($_POST['icon'] ?? 'bi-building'));
-            if($title==='' || $description==='') throw new RuntimeException('Indique o nome e a descrição do serviço.');
-            if(!preg_match('/^bi-[a-z0-9-]{2,60}$/',$icon)) $icon='bi-building';
-            if($id>0){$q=$pdo->prepare('UPDATE services SET title=?,description=?,icon=? WHERE id=?');$q->execute([$title,$description,$icon,$id]);}
-            else{$q=$pdo->prepare('INSERT INTO services(title,description,icon) VALUES(?,?,?)');$q->execute([$title,$description,$icon]);}
+            $id = (int)($_POST['id'] ?? 0);
+            $title = trim((string)($_POST['title'] ?? ''));
+            $description = trim((string)($_POST['description'] ?? ''));
+            $icon = trim((string)($_POST['icon'] ?? 'bi-building'));
+
+            if ($title === '' || $description === '') {
+                throw new RuntimeException('Indique o nome e a descrição do serviço.');
+            }
+
+            if (!preg_match('/^bi-[a-z0-9-]{2,60}$/', $icon)) {
+                $icon = 'bi-building';
+            }
+
+            if ($id > 0) {
+                $q = $pdo->prepare('UPDATE services SET title=?,description=?,icon=? WHERE id=?');
+                $q->execute([$title,$description,$icon,$id]);
+            } else {
+                $q = $pdo->prepare('INSERT INTO services(title,description,icon) VALUES(?,?,?)');
+                $q->execute([$title,$description,$icon]);
+            }
             admin_redirect('servicos');
         }
-        if ($action === 'delete_service') { $q=$pdo->prepare('DELETE FROM services WHERE id=?');$q->execute([(int)($_POST['id'] ?? 0)]);admin_redirect('servicos'); }
+
+        if ($action === 'delete_service') {
+            $q = $pdo->prepare('DELETE FROM services WHERE id=?');
+            $q->execute([(int)($_POST['id'] ?? 0)]);
+            admin_redirect('servicos');
+        }
+
         if ($action === 'save_testimonial') {
-            $id=(int)($_POST['id'] ?? 0);$name=trim((string)($_POST['client_name'] ?? ''));$message=trim((string)($_POST['message'] ?? ''));
-            if($name==='' || $message==='') throw new RuntimeException('Preencha o nome do cliente e o testemunho.');
-            if($id>0){$q=$pdo->prepare('UPDATE testimonials SET client_name=?,message=? WHERE id=?');$q->execute([$name,$message,$id]);}
-            else{$q=$pdo->prepare('INSERT INTO testimonials(client_name,message) VALUES(?,?)');$q->execute([$name,$message]);}
+            $id = (int)($_POST['id'] ?? 0);
+            $name = trim((string)($_POST['client_name'] ?? ''));
+            $message = trim((string)($_POST['message'] ?? ''));
+
+            if ($name === '' || $message === '') {
+                throw new RuntimeException('Preencha o nome do cliente e o testemunho.');
+            }
+
+            if ($id > 0) {
+                $q = $pdo->prepare('UPDATE testimonials SET client_name=?,message=? WHERE id=?');
+                $q->execute([$name,$message,$id]);
+            } else {
+                $q = $pdo->prepare('INSERT INTO testimonials(client_name,message) VALUES(?,?)');
+                $q->execute([$name,$message]);
+            }
             admin_redirect('testemunhos');
         }
-        if ($action === 'delete_testimonial') { $q=$pdo->prepare('DELETE FROM testimonials WHERE id=?');$q->execute([(int)($_POST['id'] ?? 0)]);admin_redirect('testemunhos'); }
+
+        if ($action === 'delete_testimonial') {
+            $q = $pdo->prepare('DELETE FROM testimonials WHERE id=?');
+            $q->execute([(int)($_POST['id'] ?? 0)]);
+            admin_redirect('testemunhos');
+        }
+
         if ($action === 'update_request') {
-            $status=(string)($_POST['status'] ?? 'Novo');
-            if(!in_array($status,['Novo','Em análise','Respondido','Concluído'],true)) throw new RuntimeException('Estado do pedido inválido.');
-            $q=$pdo->prepare('UPDATE quote_requests SET status=? WHERE id=?');$q->execute([$status,(int)($_POST['id'] ?? 0)]);
+            $status = (string)($_POST['status'] ?? 'Novo');
+
+            if (!in_array($status, ['Novo','Em análise','Respondido','Concluído'], true)) {
+                throw new RuntimeException('Estado do pedido inválido.');
+            }
+            $q = $pdo->prepare('UPDATE quote_requests SET status=? WHERE id=?');
+            $q->execute([$status,(int)($_POST['id'] ?? 0)]);
             admin_redirect('pedidos');
         }
+
         if ($action === 'save_settings') {
-            $allowed=['company_name','company_tagline','company_description','hero_title','hero_description','about_title','about_text','city','phone','email','whatsapp','address','opening_hours','partners'];
-            foreach($allowed as $key){$value=trim((string)($_POST[$key] ?? ''));if($key==='email' && $value!=='' && !filter_var($value,FILTER_VALIDATE_EMAIL)) throw new RuntimeException('O endereço de e-mail não é válido.');if($key==='whatsapp' && !preg_match('/^[0-9]{9,15}$/',$value)) throw new RuntimeException('O WhatsApp deve conter apenas 9 a 15 dígitos, incluindo o indicativo do país.');$q=$pdo->prepare('INSERT INTO site_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)');$q->execute([$key,$value]);}
-            foreach(['hero_image','about_image'] as $field){$oldQ=$pdo->prepare('SELECT setting_value FROM site_settings WHERE setting_key=?');$oldQ->execute([$field]);$old=$oldQ->fetchColumn();$new=admin_upload_image($field,is_string($old)?$old:null);if($new!==$old){$q=$pdo->prepare('INSERT INTO site_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)');$q->execute([$field,$new??'']);}}
+            $allowed = ['company_name','company_tagline','company_description','hero_title','hero_description','about_title','about_text','city','phone','email','whatsapp','address','opening_hours','partners'];
+
+            foreach ($allowed as $key) {
+                $value = trim((string)($_POST[$key] ?? ''));
+
+                if ($key === 'email' && $value !== '' && !filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                    throw new RuntimeException('O endereço de e-mail não é válido.');
+                }
+
+if ($key === 'whatsapp' && !preg_match('/^[0-9]{9,15}$/', $value)) {
+                    throw new RuntimeException('O WhatsApp deve conter apenas 9 a 15 dígitos, incluindo o indicativo do país.');
+                }$q = $pdo->prepare('INSERT INTO site_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)');
+                $q->execute([$key,$value]);
+            }
+
+            foreach (['hero_image','about_image'] as $field) {
+                $oldQ = $pdo->prepare('SELECT setting_value FROM site_settings WHERE setting_key=?');
+                $oldQ->execute([$field]);
+                $old = $oldQ->fetchColumn();
+                $new = admin_upload_image($field, is_string($old) ? $old : null);
+
+                if ($new !== $old) {
+                    $q = $pdo->prepare('INSERT INTO site_settings(setting_key,setting_value) VALUES(?,?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)');
+                    $q->execute([$field,$new ?? '']);
+                }
+            }
             admin_redirect('configuracoes');
         }
-    } catch (Throwable $e) { $error = $e instanceof PDOException ? 'Ocorreu um erro ao guardar os dados. Verifique as relações e os dados introduzidos.' : $e->getMessage(); }
+    } catch (Throwable $e) {
+        $error = $e instanceof PDOException ? 'Ocorreu um erro ao guardar os dados. Verifique as relações e os dados introduzidos.' : $e->getMessage();
+    }
 }
 
-$stats=['visits'=>(int)$pdo->query('SELECT COUNT(*) FROM visits')->fetchColumn(),'projects'=>(int)$pdo->query('SELECT COUNT(*) FROM projects')->fetchColumn(),'services'=>(int)$pdo->query('SELECT COUNT(*) FROM services')->fetchColumn(),'requests'=>(int)$pdo->query('SELECT COUNT(*) FROM quote_requests')->fetchColumn()];
-$projects=$pdo->query('SELECT p.*, (SELECT COUNT(*) FROM project_images pi WHERE pi.project_id=p.id) AS gallery_count FROM projects p ORDER BY p.id DESC')->fetchAll();
-$services=$pdo->query('SELECT * FROM services ORDER BY id DESC')->fetchAll();
-$testimonials=$pdo->query('SELECT * FROM testimonials ORDER BY id DESC')->fetchAll();
-$requests=$pdo->query('SELECT * FROM quote_requests ORDER BY id DESC')->fetchAll();
-$stats['ongoingProjects']=count(array_filter($projects,static fn(array $project):bool=>$project['status']==='Em andamento'));
-$stats['testimonials']=count($testimonials);
-$stats['pendingRequests']=count(array_filter($requests,static fn(array $request):bool=>!in_array($request['status'],['Respondido','Concluído'],true)));
-$settings=[];foreach($pdo->query('SELECT setting_key,setting_value FROM site_settings')->fetchAll() as $row)$settings[$row['setting_key']]=$row['setting_value'];
-$defaults=['company_name'=>'Moz Construções','company_tagline'=>'CONSTRUÇÃO & ENGENHARIA','company_description'=>'','hero_title'=>'Construímos hoje o futuro que imagina.','hero_description'=>'','about_title'=>'Mais do que construir, criamos confiança.','about_text'=>'','city'=>'Maputo, Moçambique','phone'=>'+258 84 000 0000','email'=>'contacto@horizonte.co.mz','whatsapp'=>'258840000000','address'=>'Maputo, Moçambique','opening_hours'=>'Segunda – Sexta | 08:00 – 17:00','hero_image'=>'','about_image'=>'','partners'=>default_site_partners()];
-$settings=array_merge($defaults,$settings);if(trim((string)$settings['partners'])==='')$settings['partners']=default_site_partners();$csrf=admin_csrf_token();
-function field_value(array $row,string $key):string{return admin_escape($row[$key]??'');}
-function edit_form(string $action,int $id,string $token):void{echo '<input type="hidden" name="csrf_token" value="'.admin_escape($token).'"><input type="hidden" name="action" value="'.admin_escape($action).'"><input type="hidden" name="id" value="'.$id.'">';}
+$stats = ['visits' => (int)$pdo->query('SELECT COUNT(*) FROM visits')->fetchColumn(),'projects' => (int)$pdo->query('SELECT COUNT(*) FROM projects')->fetchColumn(),'services' => (int)$pdo->query('SELECT COUNT(*) FROM services')->fetchColumn(),'requests' => (int)$pdo->query('SELECT COUNT(*) FROM quote_requests')->fetchColumn()];
+$projects = $pdo->query('SELECT p.*, (SELECT COUNT(*) FROM project_images pi WHERE pi.project_id=p.id) AS gallery_count FROM projects p ORDER BY p.id DESC')->fetchAll();
+$services = $pdo->query('SELECT * FROM services ORDER BY id DESC')->fetchAll();
+$testimonials = $pdo->query('SELECT * FROM testimonials ORDER BY id DESC')->fetchAll();
+$requests = $pdo->query('SELECT * FROM quote_requests ORDER BY id DESC')->fetchAll();
+$stats['ongoingProjects'] = count(array_filter($projects, static fn (array $project): bool => $project['status'] === 'Em andamento'));
+$stats['testimonials'] = count($testimonials);
+$stats['pendingRequests'] = count(array_filter($requests, static fn (array $request): bool => !in_array($request['status'], ['Respondido','Concluído'], true)));
+$settings = [];
+
+foreach ($pdo->query('SELECT setting_key,setting_value FROM site_settings')->fetchAll() as $row) {
+    $settings[$row['setting_key']] = $row['setting_value'];
+}
+$defaults = ['company_name' => 'Moz Construções','company_tagline' => 'CONSTRUÇÃO & ENGENHARIA','company_description' => '','hero_title' => 'Construímos hoje o futuro que imagina.','hero_description' => '','about_title' => 'Mais do que construir, criamos confiança.','about_text' => '','city' => 'Maputo, Moçambique','phone' => '+258 84 000 0000','email' => 'contacto@horizonte.co.mz','whatsapp' => '258840000000','address' => 'Maputo, Moçambique','opening_hours' => 'Segunda – Sexta | 08:00 – 17:00','hero_image' => '','about_image' => '','partners' => default_site_partners()];
+$settings = array_merge($defaults, $settings);
+
+if (trim((string)$settings['partners']) === '') {
+    $settings['partners'] = default_site_partners();
+}$csrf = admin_csrf_token();
+/**
+ * Devolve um valor de tabela já protegido para exibição segura no HTML.
+ */
+function field_value(array $row, string $key): string
+{
+    return admin_escape($row[$key] ?? '');
+}
+/**
+ * Escreve os campos ocultos comuns que identificam uma operação e protegem o formulário.
+ */
+function edit_form(string $action, int $id, string $token): void
+{
+    echo '<input type="hidden" name="csrf_token" value="' . admin_escape($token) . '"><input type="hidden" name="action" value="' . admin_escape($action) . '"><input type="hidden" name="id" value="' . $id . '">';
+}
 ?>
 <!doctype html>
 <html lang="pt">
@@ -932,7 +1070,8 @@ function edit_form(string $action,int $id,string $token):void{echo '<input type=
 
 <body>
     <div class="admin-layout">
-        <?php $adminPage=$page; include __DIR__ . '/sidebar.php'; ?>
+        <?php $adminPage = $page;
+include __DIR__ . '/sidebar.php'; ?>
         <div class="admin-main-area">
             <div class="adminbar"><button type="button" class="mobile-menu-toggle" id="adminMenuToggle"
                     aria-label="Abrir menu" aria-expanded="false"><i class="bi bi-list"></i></button>
@@ -948,24 +1087,24 @@ function edit_form(string $action,int $id,string $token):void{echo '<input type=
                     </div><?php if ($page !== 'inicio'): ?><a class="back-link" href="dashboard.php">← Painel
                         principal</a><?php endif; ?>
                 </div>
-                <?php if($error): ?><div class="error"><?= admin_escape($error) ?></div><?php endif; ?>
-                <?php if(isset($_GET['ok'])): ?><div class="notice">Operação concluída com sucesso.</div><?php endif; ?>
+                <?php if ($error): ?><div class="error"><?= admin_escape($error) ?></div><?php endif; ?>
+                <?php if (isset($_GET['ok'])): ?><div class="notice">Operação concluída com sucesso.</div><?php endif; ?>
                 <?php if ($page === 'inicio'): ?>
                 <?php
-$dashboardStats=[
+$dashboardStats = [
     ['Visitas registadas',$stats['visits'],'bi-eye','Total de visitas contabilizadas'],
     ['Projectos',$stats['projects'],'bi-buildings','Projectos publicados'],
     ['Em andamento',$stats['ongoingProjects'],'bi-cone-striped','Obras actualmente em execução'],
     ['Serviços',$stats['services'],'bi-tools','Serviços apresentados no site'],
-    ['Pedidos de orçamento',$stats['requests'],'bi-inbox',$stats['pendingRequests'].' por responder'],
+    ['Pedidos de orçamento',$stats['requests'],'bi-inbox',$stats['pendingRequests'] . ' por responder'],
     ['Testemunhos',$stats['testimonials'],'bi-chat-quote','Avaliações de clientes'],
 ];
-?>
-                <div class="stats"><?php foreach($dashboardStats as [$label,$value,$icon,$detail]): ?><article
+                    ?>
+                <div class="stats"><?php foreach ($dashboardStats as [$label,$value,$icon,$detail]): ?><article
                         class="stat-card">
                         <div class="stat-card-top"><small><?= admin_escape($label) ?></small><span class="stat-icon"><i
                                     class="bi <?= admin_escape($icon) ?>"></i></span></div>
-                        <strong><?= number_format((int)$value,0,',','.') ?></strong>
+                        <strong><?= number_format((int)$value, 0, ',', '.') ?></strong>
                         <p><?= admin_escape($detail) ?></p>
                     </article><?php endforeach; ?></div>
                 <div class="dashboard-columns">
@@ -977,11 +1116,11 @@ $dashboardStats=[
                             </div><a href="?page=pedidos">Ver todos <i class="bi bi-arrow-up-right"></i></a>
                         </div>
                         <?php if ($requests): ?><div class="recent-requests">
-                            <?php foreach(array_slice($requests,0,5) as $request): ?><div class="recent-request">
+                            <?php foreach (array_slice($requests, 0, 5) as $request): ?><div class="recent-request">
                                 <div><b><?= admin_escape($request['name']) ?></b><small><?= admin_escape($request['service'] ?: 'Serviço não indicado') ?>
-                                        · <?= admin_escape(date('d/m/Y',strtotime($request['created_at']))) ?></small>
+                                        · <?= admin_escape(date('d/m/Y', strtotime($request['created_at']))) ?></small>
                                 </div><span
-                                    class="request-status <?= in_array($request['status'],['Respondido','Concluído'],true)?'status-done':'' ?>"><?= admin_escape($request['status']) ?></span>
+                                    class="request-status <?= in_array($request['status'], ['Respondido','Concluído'], true) ? 'status-done' : '' ?>"><?= admin_escape($request['status']) ?></span>
                             </div><?php endforeach; ?></div><?php else: ?><div class="dashboard-empty">Ainda não foram
                             recebidos pedidos de orçamento.</div><?php endif; ?>
                     </section>
@@ -1011,42 +1150,42 @@ $dashboardStats=[
                 <?php endif; ?>
                 <?php if ($page === 'configuracoes'): ?><section class="panel" id="configuracoes">
                     <h2>Conteúdos institucionais e contactos</h2>
-                    <form method="post" enctype="multipart/form-data"><?php edit_form('save_settings',0,$csrf); ?><div
+                    <form method="post" enctype="multipart/form-data"><?php edit_form('save_settings', 0, $csrf); ?><div
                             class="two-col">
                             <div><label>Nome da empresa<input name="company_name" required maxlength="120"
-                                        value="<?= field_value($settings,'company_name') ?>"></label><label>Assinatura /
+                                        value="<?= field_value($settings, 'company_name') ?>"></label><label>Assinatura /
                                     actividade<input name="company_tagline" maxlength="160"
-                                        value="<?= field_value($settings,'company_tagline') ?>"></label><label>Descrição
+                                        value="<?= field_value($settings, 'company_tagline') ?>"></label><label>Descrição
                                     institucional<textarea name="company_description"
-                                        rows="3"><?= field_value($settings,'company_description') ?></textarea></label><label>Título
+                                        rows="3"><?= field_value($settings, 'company_description') ?></textarea></label><label>Título
                                     do banner<input name="hero_title" maxlength="220"
-                                        value="<?= field_value($settings,'hero_title') ?>"></label><label>Texto do
+                                        value="<?= field_value($settings, 'hero_title') ?>"></label><label>Texto do
                                     banner<textarea name="hero_description"
-                                        rows="3"><?= field_value($settings,'hero_description') ?></textarea></label><label>Título
+                                        rows="3"><?= field_value($settings, 'hero_description') ?></textarea></label><label>Título
                                     da secção Sobre<input name="about_title" maxlength="220"
-                                        value="<?= field_value($settings,'about_title') ?>"></label><label>Texto da
+                                        value="<?= field_value($settings, 'about_title') ?>"></label><label>Texto da
                                     secção Sobre<textarea name="about_text"
-                                        rows="3"><?= field_value($settings,'about_text') ?></textarea></label></div>
+                                        rows="3"><?= field_value($settings, 'about_text') ?></textarea></label></div>
                             <div><label>Cidade / localização<input name="city"
-                                        value="<?= field_value($settings,'city') ?>"></label><label>Morada<input
+                                        value="<?= field_value($settings, 'city') ?>"></label><label>Morada<input
                                         name="address"
-                                        value="<?= field_value($settings,'address') ?>"></label><label>Telefone<input
+                                        value="<?= field_value($settings, 'address') ?>"></label><label>Telefone<input
                                         name="phone"
-                                        value="<?= field_value($settings,'phone') ?>"></label><label>E-mail<input
+                                        value="<?= field_value($settings, 'phone') ?>"></label><label>E-mail<input
                                         type="email" name="email"
-                                        value="<?= field_value($settings,'email') ?>"></label><label>WhatsApp (apenas
+                                        value="<?= field_value($settings, 'email') ?>"></label><label>WhatsApp (apenas
                                     dígitos com indicativo)<input name="whatsapp" pattern="[0-9]{9,15}"
-                                        value="<?= field_value($settings,'whatsapp') ?>"></label><label>Horário de
+                                        value="<?= field_value($settings, 'whatsapp') ?>"></label><label>Horário de
                                     atendimento<input name="opening_hours"
-                                        value="<?= field_value($settings,'opening_hours') ?>"></label><label>Parceiros
+                                        value="<?= field_value($settings, 'opening_hours') ?>"></label><label>Parceiros
                                     (um por linha: Nome | URL do logo | URL do site)<textarea name="partners" rows="5"
-                                        placeholder="Empresa A | https://.../logo.png | https://empresa-a.com"><?= field_value($settings,'partners') ?></textarea></label><label>Imagem
+                                        placeholder="Empresa A | https://.../logo.png | https://empresa-a.com"><?= field_value($settings, 'partners') ?></textarea></label><label>Imagem
                                     do banner (JPG, PNG ou WEBP, máx. 5 MB)<input type="file" name="hero_image"
-                                        accept="image/jpeg,image/png,image/webp"></label><?php if($settings['hero_image']): ?><img
+                                        accept="image/jpeg,image/png,image/webp"></label><?php if ($settings['hero_image']): ?><img
                                     class="thumb" src="../<?= admin_escape($settings['hero_image']) ?>"
                                     alt="Banner actual"><?php endif; ?><label>Imagem da secção Sobre<input type="file"
                                         name="about_image"
-                                        accept="image/jpeg,image/png,image/webp"></label><?php if($settings['about_image']): ?><img
+                                        accept="image/jpeg,image/png,image/webp"></label><?php if ($settings['about_image']): ?><img
                                     class="thumb" src="../<?= admin_escape($settings['about_image']) ?>"
                                     alt="Imagem actual"><?php endif; ?></div>
                         </div><button class="btn btn-primary">Guardar conteúdos e contactos</button></form>
@@ -1057,7 +1196,7 @@ $dashboardStats=[
                         <div>
                             <h3>Adicionar projecto</h3>
                             <form method="post" enctype="multipart/form-data">
-                                <?php edit_form('save_project',0,$csrf); ?><label>Nome do projecto<input name="title"
+                                <?php edit_form('save_project', 0, $csrf); ?><label>Nome do projecto<input name="title"
                                         required></label><label>Localização<input name="location"
                                         required></label><label>Categoria<input name="category"
                                         required></label><label>Descrição<textarea name="description"
@@ -1082,9 +1221,9 @@ $dashboardStats=[
                                     <th>Imagem</th>
                                     <th>Projecto</th>
                                     <th>Estado / acções</th>
-                                </tr><?php foreach($projects as $p): ?><tr>
-                                    <td><?php if($p['image_url']): ?><img class="thumb"
-                                            src="<?= admin_escape(str_starts_with($p['image_url'],'uploads/')?'../'.$p['image_url']:$p['image_url']) ?>"
+                                </tr><?php foreach ($projects as $p): ?><tr>
+                                    <td><?php if ($p['image_url']): ?><img class="thumb"
+                                            src="<?= admin_escape(str_starts_with($p['image_url'], 'uploads/') ? '../' . $p['image_url'] : $p['image_url']) ?>"
                                             alt=""><?php endif; ?></td>
                                     <td><b><?= admin_escape($p['title']) ?></b><br><?= admin_escape($p['location']) ?>
                                     </td>
@@ -1094,7 +1233,7 @@ $dashboardStats=[
                                         <details>
                                             <summary>Editar</summary>
                                             <form method="post" enctype="multipart/form-data">
-                                                <?php edit_form('save_project',(int)$p['id'],$csrf); ?><label>Nome<input
+                                                <?php edit_form('save_project', (int)$p['id'], $csrf); ?><label>Nome<input
                                                         name="title" required
                                                         value="<?= admin_escape($p['title']) ?>"></label><label>Localização<input
                                                         name="location" required
@@ -1105,19 +1244,19 @@ $dashboardStats=[
                                                     imagem<input type="file" name="image_file"
                                                         accept="image/jpeg,image/png,image/webp"></label><label>URL
                                                     externa<input name="image_url" type="url"
-                                                        value="<?= admin_escape(str_starts_with((string)$p['image_url'],'uploads/')?'':$p['image_url']) ?>"></label><label>Adicionar
+                                                        value="<?= admin_escape(str_starts_with((string)$p['image_url'], 'uploads/') ? '' : $p['image_url']) ?>"></label><label>Adicionar
                                                     fotografias à galeria<input type="file" name="gallery_files[]"
                                                         accept="image/jpeg,image/png,image/webp" multiple></label><small
                                                     class="muted">As novas fotografias serão acrescentadas às existentes
                                                     (máximo 10 por envio).</small><label>Estado<select
-                                                        name="status"><?php foreach(['Concluído','Em andamento','Planeado'] as $st): ?>
-                                                        <option <?= $p['status']===$st?'selected':'' ?>><?= $st ?>
+                                                        name="status"><?php foreach (['Concluído','Em andamento','Planeado'] as $st): ?>
+                                                        <option <?= $p['status'] === $st ? 'selected' : '' ?>><?= $st ?>
                                                         </option><?php endforeach; ?></select></label><button
                                                     class="btn btn-primary">Guardar edição</button></form>
                                         </details>
                                         <form method="post" class="inline-form"
                                             onsubmit="return confirm('Tem a certeza de que pretende eliminar este projecto?')">
-                                            <?php edit_form('delete_project',(int)$p['id'],$csrf); ?><button
+                                            <?php edit_form('delete_project', (int)$p['id'], $csrf); ?><button
                                                 class="btn danger-btn">Eliminar</button></form>
                                     </td>
                                 </tr><?php endforeach; ?>
@@ -1130,7 +1269,7 @@ $dashboardStats=[
                     <div class="two-col">
                         <div>
                             <h3>Adicionar serviço</h3>
-                            <form method="post"><?php edit_form('save_service',0,$csrf); ?><label>Nome<input
+                            <form method="post"><?php edit_form('save_service', 0, $csrf); ?><label>Nome<input
                                         name="title" required></label><label>Descrição<textarea name="description"
                                         rows="3" required></textarea></label><label>Ícone Bootstrap (ex.:
                                     bi-building)<input name="icon" value="bi-building"></label><button
@@ -1142,14 +1281,14 @@ $dashboardStats=[
                                 <tr>
                                     <th>Serviço</th>
                                     <th>Acções</th>
-                                </tr><?php foreach($services as $s): ?><tr>
+                                </tr><?php foreach ($services as $s): ?><tr>
                                     <td><b><?= admin_escape($s['title']) ?></b><br><?= admin_escape($s['description']) ?>
                                     </td>
                                     <td>
                                         <details>
                                             <summary>Editar</summary>
                                             <form method="post">
-                                                <?php edit_form('save_service',(int)$s['id'],$csrf); ?><label>Nome<input
+                                                <?php edit_form('save_service', (int)$s['id'], $csrf); ?><label>Nome<input
                                                         name="title" required
                                                         value="<?= admin_escape($s['title']) ?>"></label><label>Descrição<textarea
                                                         name="description"
@@ -1160,7 +1299,7 @@ $dashboardStats=[
                                         </details>
                                         <form method="post" class="inline-form"
                                             onsubmit="return confirm('Eliminar este serviço?')">
-                                            <?php edit_form('delete_service',(int)$s['id'],$csrf); ?><button
+                                            <?php edit_form('delete_service', (int)$s['id'], $csrf); ?><button
                                                 class="btn danger-btn">Eliminar</button></form>
                                     </td>
                                 </tr><?php endforeach; ?>
@@ -1173,7 +1312,7 @@ $dashboardStats=[
                     <div class="two-col">
                         <div>
                             <h3>Adicionar testemunho</h3>
-                            <form method="post"><?php edit_form('save_testimonial',0,$csrf); ?><label>Nome do
+                            <form method="post"><?php edit_form('save_testimonial', 0, $csrf); ?><label>Nome do
                                     cliente<input name="client_name" required></label><label>Testemunho<textarea
                                         name="message" rows="4" required></textarea></label><button
                                     class="btn btn-primary">Adicionar testemunho</button></form>
@@ -1184,14 +1323,14 @@ $dashboardStats=[
                                 <tr>
                                     <th>Cliente / testemunho</th>
                                     <th>Acções</th>
-                                </tr><?php foreach($testimonials as $t): ?><tr>
+                                </tr><?php foreach ($testimonials as $t): ?><tr>
                                     <td><b><?= admin_escape($t['client_name']) ?></b><br><?= admin_escape($t['message']) ?>
                                     </td>
                                     <td>
                                         <details>
                                             <summary>Editar</summary>
                                             <form method="post">
-                                                <?php edit_form('save_testimonial',(int)$t['id'],$csrf); ?><label>Nome<input
+                                                <?php edit_form('save_testimonial', (int)$t['id'], $csrf); ?><label>Nome<input
                                                         name="client_name" required
                                                         value="<?= admin_escape($t['client_name']) ?>"></label><label>Testemunho<textarea
                                                         name="message"
@@ -1200,7 +1339,7 @@ $dashboardStats=[
                                         </details>
                                         <form method="post" class="inline-form"
                                             onsubmit="return confirm('Eliminar este testemunho?')">
-                                            <?php edit_form('delete_testimonial',(int)$t['id'],$csrf); ?><button
+                                            <?php edit_form('delete_testimonial', (int)$t['id'], $csrf); ?><button
                                                 class="btn danger-btn">Eliminar</button></form>
                                     </td>
                                 </tr><?php endforeach; ?>
@@ -1217,15 +1356,15 @@ $dashboardStats=[
                             <th>Contacto</th>
                             <th>Serviço / detalhe</th>
                             <th>Estado</th>
-                        </tr><?php foreach($requests as $r): ?><tr>
+                        </tr><?php foreach ($requests as $r): ?><tr>
                             <td><?= admin_escape($r['created_at']) ?></td>
                             <td><?= admin_escape($r['name']) ?><br><?= admin_escape($r['email']) ?></td>
                             <td><?= admin_escape($r['phone']) ?></td>
                             <td><?= admin_escape($r['service']) ?><br><?= admin_escape($r['details']) ?></td>
                             <td>
-                                <form method="post"><?php edit_form('update_request',(int)$r['id'],$csrf); ?><select
-                                        name="status"><?php foreach(['Novo','Em análise','Respondido','Concluído'] as $st): ?>
-                                        <option <?= $r['status']===$st?'selected':'' ?>><?= $st ?></option>
+                                <form method="post"><?php edit_form('update_request', (int)$r['id'], $csrf); ?><select
+                                        name="status"><?php foreach (['Novo','Em análise','Respondido','Concluído'] as $st): ?>
+                                        <option <?= $r['status'] === $st ? 'selected' : '' ?>><?= $st ?></option>
                                         <?php endforeach; ?></select><button class="btn btn-primary">Actualizar</button>
                                 </form>
                             </td>

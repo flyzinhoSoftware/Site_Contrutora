@@ -1,23 +1,39 @@
 <?php
+
+/**
+ * public/admin/login.php
+ * Código organizado e comentado para ser fácil de entender e manter.
+ * Assinado por Flyzinho — toque próprio, feito com cuidado.
+ */
+
+
 declare(strict_types=1);
 require_once __DIR__ . '/../../app/admin.php';
-if (!empty($_SESSION['admin_id'])) { header('Location: dashboard.php'); exit; }
+
+if (!empty($_SESSION['admin_id'])) {
+    header('Location: dashboard.php');
+    exit;
+}
 $error = '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     admin_verify_csrf();
     $email = filter_var(trim((string)($_POST['email'] ?? '')), FILTER_VALIDATE_EMAIL);
     $password = (string)($_POST['password'] ?? '');
+
     if ($email) {
         $stmt = db()->prepare('SELECT id, name, password FROM admins WHERE email = ? LIMIT 1');
         $stmt->execute([$email]);
         $admin = $stmt->fetch();
+
         if ($admin && password_verify($password, $admin['password'])) {
             session_regenerate_id(true);
             $_SESSION['admin_id'] = (int)$admin['id'];
             $_SESSION['admin_name'] = $admin['name'];
             $_SESSION['last_activity'] = time();
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-            header('Location: dashboard.php'); exit;
+            header('Location: dashboard.php');
+            exit;
         }
     }
     $error = 'E-mail ou palavra-passe incorrectos.';
@@ -83,8 +99,8 @@ $csrf = admin_csrf_token();
     <form class="login" method="post"><a class="brand" href="../index.php"><span class="brand-mark">M</span><span>MOZ
                 CONSTRUÇÕES<small>ADMINISTRAÇÃO</small></span></a>
         <h1>Entrar no painel</h1>
-        <p>Introduza as suas credenciais.</p><?php if(isset($_GET['expired'])): ?><p class="notice">A sessão expirou por
-            inactividade. Entre novamente.</p><?php endif; ?><?php if($error): ?><p class="err">
+        <p>Introduza as suas credenciais.</p><?php if (isset($_GET['expired'])): ?><p class="notice">A sessão expirou por
+            inactividade. Entre novamente.</p><?php endif; ?><?php if ($error): ?><p class="err">
             <?= admin_escape($error) ?></p><?php endif; ?><input type="hidden" name="csrf_token"
             value="<?= admin_escape($csrf) ?>"><label>E-mail<input type="email" name="email" required
                 autocomplete="username"></label><label>Palavra-passe<input type="password" name="password" required

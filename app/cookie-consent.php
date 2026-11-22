@@ -1,24 +1,215 @@
-<section id="cookieConsent" class="cookie-consent" role="dialog" aria-live="polite" aria-label="Preferências de cookies" hidden>
-  <div class="cookie-copy"><strong>Privacidade e cookies</strong><p>Utilizamos cookies essenciais para o funcionamento do website. Com a sua autorização, também usamos cookies de análise para compreender as visitas e melhorar os conteúdos. Pode aceitar, recusar ou personalizar a sua escolha.</p><a href="#politica-cookies" id="cookieDetails">Como usamos cookies</a></div>
-  <div class="cookie-actions"><button type="button" class="cookie-btn cookie-secondary" id="cookieReject">Recusar análise</button><button type="button" class="cookie-btn cookie-secondary" id="cookieSettings">Personalizar</button><button type="button" class="cookie-btn cookie-primary" id="cookieAccept">Aceitar todos</button></div>
-  <div id="cookiePreferences" class="cookie-preferences" hidden><label><input type="checkbox" checked disabled> Cookies essenciais (sempre activos)</label><label><input type="checkbox" id="cookieAnalytics"> Cookies de análise</label><button type="button" class="cookie-btn cookie-primary" id="cookieSave">Guardar preferências</button></div>
+<!--
+    Aviso de privacidade:
+    Esta caixa aparece até o visitante escolher entre aceitar ou recusar
+    os cookies opcionais. Os cookies essenciais continuam activos.
+    Assinado por Flyzinho — toque próprio, feito com cuidado.
+-->
+<section id="cookieConsent" class="cookie-consent" role="dialog" aria-live="polite" aria-label="Preferências de cookies"
+    hidden>
+    <div class="cookie-copy"><strong>Privacidade e cookies</strong>
+        <p>Utilizamos cookies essenciais para o funcionamento do website. Com a sua autorização, também usamos cookies
+            de análise para compreender as visitas e melhorar os conteúdos. Pode aceitar, recusar ou personalizar a sua
+            escolha.</p><a href="#politica-cookies" id="cookieDetails">Como usamos cookies</a>
+    </div>
+    <div class="cookie-actions"><button type="button" class="cookie-btn cookie-secondary" id="cookieReject">Recusar
+            análise</button><button type="button" class="cookie-btn cookie-secondary"
+            id="cookieSettings">Personalizar</button><button type="button" class="cookie-btn cookie-primary"
+            id="cookieAccept">Aceitar todos</button></div>
+    <div id="cookiePreferences" class="cookie-preferences" hidden><label><input type="checkbox" checked disabled>
+            Cookies essenciais (sempre activos)</label><label><input type="checkbox" id="cookieAnalytics"> Cookies de
+            análise</label><button type="button" class="cookie-btn cookie-primary" id="cookieSave">Guardar
+            preferências</button></div>
 </section>
+<!-- Botão usado depois da escolha para que o visitante possa alterar as preferências. -->
 <button type="button" id="cookieReopen" class="cookie-reopen" hidden>Preferências de cookies</button>
 <style>
-.cookie-reopen{position:fixed;z-index:9998;left:18px;bottom:18px;border:1px solid #d2deea;border-radius:999px;padding:9px 13px;background:#fff;color:#174c7c;font-weight:700;box-shadow:0 5px 18px #102b4620;cursor:pointer}.cookie-reopen[hidden]{display:none}.cookie-consent{position:fixed;z-index:9999;left:20px;right:20px;bottom:20px;max-width:1120px;margin:auto;background:#fff;color:#23384d;border:1px solid #dbe5ee;border-radius:14px;box-shadow:0 18px 55px #102b4630;padding:22px;display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;font:14px/1.55 Arial,sans-serif}.cookie-consent[hidden],.cookie-preferences[hidden]{display:none}.cookie-copy strong{display:block;color:#123b65;font-size:17px;margin-bottom:5px}.cookie-copy p{margin:0 0 6px;color:#607184}.cookie-copy a{color:#1769aa;font-weight:700}.cookie-actions{display:flex;gap:8px;flex-wrap:wrap}.cookie-btn{border:1px solid #d2deea;border-radius:8px;padding:10px 13px;font-weight:700;cursor:pointer}.cookie-primary{background:#1769aa;color:#fff;border-color:#1769aa}.cookie-secondary{background:#fff;color:#174c7c}.cookie-preferences{grid-column:1/-1;display:flex;gap:18px;align-items:center;flex-wrap:wrap;border-top:1px solid #e8eef3;padding-top:14px}.cookie-preferences label{display:flex;gap:7px;align-items:center}.cookie-preferences input{width:auto}@media(max-width:760px){.cookie-consent{left:10px;right:10px;bottom:10px;grid-template-columns:1fr;padding:17px}.cookie-actions{display:grid;grid-template-columns:1fr 1fr}.cookie-actions .cookie-primary{grid-column:1/-1}.cookie-preferences{display:grid;grid-template-columns:1fr}}
+/* Reabre o painel de preferências sem ocupar espaço enquanto não é necessário. */
+.cookie-reopen {
+    position: fixed;
+    z-index: 9998;
+    left: 18px;
+    bottom: 18px;
+    border: 1px solid #d2deea;
+    border-radius: 999px;
+    padding: 9px 13px;
+    background: #fff;
+    color: #174c7c;
+    font-weight: 700;
+    box-shadow: 0 5px 18px #102b4620;
+    cursor: pointer
+}
+
+.cookie-reopen[hidden] {
+    display: none
+}
+
+.cookie-consent {
+    position: fixed;
+    z-index: 9999;
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+    max-width: 1120px;
+    margin: auto;
+    background: #fff;
+    color: #23384d;
+    border: 1px solid #dbe5ee;
+    border-radius: 14px;
+    box-shadow: 0 18px 55px #102b4630;
+    padding: 22px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 18px;
+    align-items: center;
+    font: 14px/1.55 Arial, sans-serif
+}
+
+.cookie-consent[hidden],
+.cookie-preferences[hidden] {
+    display: none
+}
+
+.cookie-copy strong {
+    display: block;
+    color: #123b65;
+    font-size: 17px;
+    margin-bottom: 5px
+}
+
+.cookie-copy p {
+    margin: 0 0 6px;
+    color: #607184
+}
+
+.cookie-copy a {
+    color: #1769aa;
+    font-weight: 700
+}
+
+.cookie-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap
+}
+
+.cookie-btn {
+    border: 1px solid #d2deea;
+    border-radius: 8px;
+    padding: 10px 13px;
+    font-weight: 700;
+    cursor: pointer
+}
+
+.cookie-primary {
+    background: #1769aa;
+    color: #fff;
+    border-color: #1769aa
+}
+
+.cookie-secondary {
+    background: #fff;
+    color: #174c7c
+}
+
+.cookie-preferences {
+    grid-column: 1/-1;
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    flex-wrap: wrap;
+    border-top: 1px solid #e8eef3;
+    padding-top: 14px
+}
+
+.cookie-preferences label {
+    display: flex;
+    gap: 7px;
+    align-items: center
+}
+
+.cookie-preferences input {
+    width: auto
+}
+
+@media(max-width:760px) {
+    .cookie-consent {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        grid-template-columns: 1fr;
+        padding: 17px
+    }
+
+    .cookie-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr
+    }
+
+    .cookie-actions .cookie-primary {
+        grid-column: 1/-1
+    }
+
+    .cookie-preferences {
+        display: grid;
+        grid-template-columns: 1fr
+    }
+}
 </style>
 <script>
-(function(){
- const banner=document.getElementById('cookieConsent');if(!banner)return;
- const read=name=>document.cookie.split('; ').find(x=>x.startsWith(name+'='))?.split('=').slice(1).join('=')||'';
- const set=(name,value,days)=>{const secure=location.protocol==='https:'?'; Secure':'';document.cookie=name+'='+encodeURIComponent(value)+'; Max-Age='+(days*86400)+'; Path=/; SameSite=Lax'+secure};
- const reopen=document.getElementById('cookieReopen');const pref=read('moz_cookie_consent');if(!pref)banner.hidden=false;else reopen.hidden=false;reopen.addEventListener('click',()=>{banner.hidden=false;choices.hidden=true;analytics.checked=read('moz_analytics')==='1';reopen.hidden=true});
- const choices=document.getElementById('cookiePreferences'),analytics=document.getElementById('cookieAnalytics');
- document.getElementById('cookieSettings').addEventListener('click',()=>{choices.hidden=!choices.hidden;analytics.checked=read('moz_analytics')==='1'});
- function save(allow){set('moz_cookie_consent',allow?'custom':'rejected',180);set('moz_analytics',allow?'1':'0',180);banner.hidden=true;reopen.hidden=false;if(allow&&!read('moz_visitor_id')){const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);set('moz_visitor_id',Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join(''),180)}}
- document.getElementById('cookieAccept').addEventListener('click',()=>save(true));
- document.getElementById('cookieReject').addEventListener('click',()=>save(false));
- document.getElementById('cookieSave').addEventListener('click',()=>save(analytics.checked));
- const details=document.getElementById('cookieDetails');details.addEventListener('click',e=>{e.preventDefault();choices.hidden=false;analytics.checked=read('moz_analytics')==='1'});
+// O código abaixo guarda e lê preferências apenas no navegador do visitante.
+(function() {
+    const banner = document.getElementById('cookieConsent');
+    if (!banner) return;
+
+    // Procura um cookie pelo nome e devolve o seu valor já decodificado.
+    const read = name => document.cookie.split('; ').find(x => x.startsWith(name + '='))?.split('=').slice(1).join(
+        '=') || '';
+
+    // Cria ou actualiza um cookie com prazo de validade em dias.
+    const set = (name, value, days) => {
+        const secure = location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = name + '=' + encodeURIComponent(value) + '; Max-Age=' + (days * 86400) +
+            '; Path=/; SameSite=Lax' + secure
+    };
+    const reopen = document.getElementById('cookieReopen');
+    const pref = read('moz_cookie_consent');
+
+    // Uma primeira visita mostra o aviso; visitas seguintes mostram o botão de alteração.
+    if (!pref) banner.hidden = false;
+    else reopen.hidden = false;
+    reopen.addEventListener('click', () => {
+        banner.hidden = false;
+        choices.hidden = true;
+        analytics.checked = read('moz_analytics') === '1';
+        reopen.hidden = true
+    });
+    const choices = document.getElementById('cookiePreferences'),
+        analytics = document.getElementById('cookieAnalytics');
+    document.getElementById('cookieSettings').addEventListener('click', () => {
+        choices.hidden = !choices.hidden;
+        analytics.checked = read('moz_analytics') === '1'
+    });
+
+    // Guarda a decisão, fecha o aviso e cria o identificador anónimo apenas quando autorizado.
+    function save(allow) {
+        set('moz_cookie_consent', allow ? 'custom' : 'rejected', 180);
+        set('moz_analytics', allow ? '1' : '0', 180);
+        banner.hidden = true;
+        reopen.hidden = false;
+        if (allow && !read('moz_visitor_id')) {
+            const bytes = new Uint8Array(16);
+            crypto.getRandomValues(bytes);
+            set('moz_visitor_id', Array.from(bytes, b => b.toString(16).padStart(2, '0')).join(''), 180)
+        }
+    }
+    document.getElementById('cookieAccept').addEventListener('click', () => save(true));
+    document.getElementById('cookieReject').addEventListener('click', () => save(false));
+    document.getElementById('cookieSave').addEventListener('click', () => save(analytics.checked));
+    const details = document.getElementById('cookieDetails');
+    details.addEventListener('click', e => {
+        e.preventDefault();
+        choices.hidden = false;
+        analytics.checked = read('moz_analytics') === '1'
+    });
 })();
 </script>

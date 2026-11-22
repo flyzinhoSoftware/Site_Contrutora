@@ -1,4 +1,12 @@
 <?php
+
+/**
+ * public/blog/index.php
+ * Código organizado e comentado para ser fácil de entender e manter.
+ * Assinado por Flyzinho — toque próprio, feito com cuidado.
+ */
+
+
 declare(strict_types=1);
 require_once __DIR__ . '/../../app/session.php';
 require_once __DIR__ . '/../../app/db.php';
@@ -14,8 +22,17 @@ $popular = $pdo->query("SELECT p.id,p.title,p.slug,p.published_at,(SELECT COUNT(
 
 $where = "p.status='published' AND p.published_at<=NOW()";
 $params = [];
-if ($search !== '') { $where .= ' AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)'; $term = '%' . $search . '%'; array_push($params, $term, $term, $term); }
-if ($categoryId > 0) { $where .= ' AND p.category_id=?'; $params[] = $categoryId; }
+
+if ($search !== '') {
+    $where .= ' AND (p.title LIKE ? OR p.excerpt LIKE ? OR p.content LIKE ?)';
+    $term = '%' . $search . '%';
+    array_push($params, $term, $term, $term);
+}
+
+if ($categoryId > 0) {
+    $where .= ' AND p.category_id=?';
+    $params[] = $categoryId;
+}
 $count = $pdo->prepare("SELECT COUNT(*) FROM blog_posts p WHERE $where");
 $count->execute($params);
 $total = (int)$count->fetchColumn();
@@ -23,14 +40,45 @@ $pages = max(1, (int)ceil($total / $perPage));
 $page = min($page, $pages);
 $sql = "SELECT p.*,c.name category,(SELECT COUNT(*) FROM blog_post_views v WHERE v.post_id=p.id) views,(SELECT COUNT(*) FROM blog_post_reactions r WHERE r.post_id=p.id) reactions FROM blog_posts p LEFT JOIN blog_categories c ON c.id=p.category_id WHERE $where ORDER BY p.published_at DESC LIMIT ? OFFSET ?";
 $stmt = $pdo->prepare($sql);
-foreach ($params as $i => $param) $stmt->bindValue($i + 1, $param, PDO::PARAM_STR);
+
+foreach ($params as $i => $param) {
+    $stmt->bindValue($i + 1, $param, PDO::PARAM_STR);
+}
 $stmt->bindValue(count($params) + 1, $perPage, PDO::PARAM_INT);
 $stmt->bindValue(count($params) + 2, ($page - 1) * $perPage, PDO::PARAM_INT);
 $stmt->execute();
 $posts = $stmt->fetchAll();
-function e($v): string { return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
-function blog_url(int $page, string $search, int $category): string { return '?' . http_build_query(['page'=>$page,'q'=>$search,'categoria'=>$category]); }
-function excerpt_text(string $value, int $limit = 145): string { $value = trim(strip_tags($value)); if (function_exists('mb_strlen') && mb_strlen($value,'UTF-8') > $limit) return mb_substr($value,0,$limit,'UTF-8').'…'; if (strlen($value)>$limit) return substr($value,0,$limit).'…'; return $value; }
+/**
+ * Converte texto em uma versão segura para mostrar no HTML.
+ */
+function e($v): string
+{
+    return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+/**
+ * Monta o endereço da página do blog mantendo pesquisa e categoria actuais.
+ */
+function blog_url(int $page, string $search, int $category): string
+{
+    return '?' . http_build_query(['page' => $page,'q' => $search,'categoria' => $category]);
+}
+/**
+ * Remove excesso de conteúdo e devolve apenas o pequeno resumo desejado.
+ */
+function excerpt_text(string $value, int $limit = 145): string
+{
+    $value = trim(strip_tags($value));
+
+    if (function_exists('mb_strlen') && mb_strlen($value, 'UTF-8') > $limit) {
+        return mb_substr($value, 0, $limit, 'UTF-8') . '…';
+    }
+
+if (strlen($value) > $limit) {
+        return substr($value, 0, $limit) . '…';
+    }
+
+return $value;
+}
 ?><!doctype html>
 <html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Notícias, artigos, ideias e informação sobre construção civil, engenharia e infra-estruturas em Moçambique."><meta name="theme-color" content="#123b65"><meta property="og:type" content="website"><meta property="og:title" content="Notícias & Conhecimento | Moz Construções"><meta property="og:description" content="Informação para construir melhor em Moçambique."><title>Notícias &amp; Conhecimento | Moz Construções</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <style>
@@ -48,19 +96,19 @@ html{scroll-behavior:smooth}.news-page{background:radial-gradient(circle at 8% 4
 </head><body class="news-page" id="topo"><a class="skip-link" href="#conteudo">Saltar para o conteúdo</a><main class="news-wrap">
 <nav class="news-nav" aria-label="Navegação principal"><a class="back-site" href="../index.php"><span class="back-icon"><i class="bi bi-house-door-fill"></i></span><span><small>MOZ CONSTRUÇÕES</small><strong>Voltar ao site</strong></span><i class="bi bi-arrow-up-right back-arrow"></i></a><a class="news-brand" href="index.php" aria-label="Página inicial do blog">MOZ CONSTRUÇÕES <span>·</span> INFORMAÇÃO</a><a class="contact-link" href="../index.php#contactos">Fale connosco <i class="bi bi-arrow-up-right"></i></a></nav>
 <header class="news-masthead"><div class="masthead-copy"><span class="masthead-eyebrow"><i class="bi bi-journal-richtext"></i> REVISTA DIGITAL · MOÇAMBIQUE</span><h1>Notícias <em>&amp;</em><br>Conhecimento</h1><p>Ideias, tendências e informação que ajudam a construir melhor. Acompanhe o que importa na construção civil, engenharia e infra-estruturas.</p><div class="masthead-bottom"><span><i class="bi bi-calendar3"></i> <?= e(date('d/m/Y')) ?></span><span><i class="bi bi-book-half"></i> <?= $total ?> conteúdos publicados</span><a href="#ultimas">Explorar artigos <i class="bi bi-arrow-down-right"></i></a></div></div><div class="masthead-art" aria-hidden="true"><div class="art-circle art-circle-one"></div><div class="art-circle art-circle-two"></div><div class="art-blueprint"><span>MC</span><small>IDEIAS QUE<br>CONSTROEM</small><i class="bi bi-buildings"></i></div><div class="art-caption">CONSTRUIR · INOVAR · TRANSFORMAR</div></div></header>
-<?php if($latest): ?><div class="breaking"><strong>EM DESTAQUE</strong><div class="breaking-track"><span><?php foreach($latest as $item): ?><a href="post.php?slug=<?= rawurlencode($item['slug']) ?>"><?= e($item['title']) ?></a><?php endforeach; ?></span></div></div>
-<section class="news-slider" aria-label="Notícias em destaque" data-news-slider><?php $first=$latest[0]; ?><div class="slider-image"><?php if(!empty($first['cover_image'])): ?><img data-slider-image src="../<?= e($first['cover_image']) ?>" alt="<?= e($first['title']) ?>"><?php else: ?><img data-slider-image src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" alt="Obra de construção civil"><?php endif; ?></div><div class="slider-copy"><span class="tag" data-slider-category><?= e($first['category']??'Notícia') ?> · <?= e(date('d/m/Y',strtotime($first['published_at']))) ?></span><h2 data-slider-title><?= e($first['title']) ?></h2><p data-slider-excerpt><?= e(excerpt_text((string)$first['excerpt'],190)) ?></p><a data-slider-link href="post.php?slug=<?= rawurlencode($first['slug']) ?>">Ler notícia completa <i class="bi bi-arrow-right"></i></a></div><div class="slider-controls"><button type="button" data-slider-prev aria-label="Notícia anterior"><i class="bi bi-chevron-left"></i></button><button type="button" data-slider-next aria-label="Próxima notícia"><i class="bi bi-chevron-right"></i></button><button type="button" data-slider-pause aria-label="Pausar rotação automática" aria-pressed="false"><i class="bi bi-pause-fill"></i></button></div></section><?php endif; ?>
+<?php if ($latest): ?><div class="breaking"><strong>EM DESTAQUE</strong><div class="breaking-track"><span><?php foreach ($latest as $item): ?><a href="post.php?slug=<?= rawurlencode($item['slug']) ?>"><?= e($item['title']) ?></a><?php endforeach; ?></span></div></div>
+<section class="news-slider" aria-label="Notícias em destaque" data-news-slider><?php $first = $latest[0]; ?><div class="slider-image"><?php if (!empty($first['cover_image'])): ?><img data-slider-image src="../<?= e($first['cover_image']) ?>" alt="<?= e($first['title']) ?>"><?php else: ?><img data-slider-image src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&amp;fit=crop&amp;w=1200&amp;q=80" alt="Obra de construção civil"><?php endif; ?></div><div class="slider-copy"><span class="tag" data-slider-category><?= e($first['category'] ?? 'Notícia') ?> · <?= e(date('d/m/Y', strtotime($first['published_at']))) ?></span><h2 data-slider-title><?= e($first['title']) ?></h2><p data-slider-excerpt><?= e(excerpt_text((string)$first['excerpt'], 190)) ?></p><a data-slider-link href="post.php?slug=<?= rawurlencode($first['slug']) ?>">Ler notícia completa <i class="bi bi-arrow-right"></i></a></div><div class="slider-controls"><button type="button" data-slider-prev aria-label="Notícia anterior"><i class="bi bi-chevron-left"></i></button><button type="button" data-slider-next aria-label="Próxima notícia"><i class="bi bi-chevron-right"></i></button><button type="button" data-slider-pause aria-label="Pausar rotação automática" aria-pressed="false"><i class="bi bi-pause-fill"></i></button></div></section><?php endif; ?>
 <div id="conteudo" class="section-heading"><div><span class="section-kicker">LEITURA EM DESTAQUE</span><h2 id="ultimas">Últimas publicações</h2></div><span><?= $total ?> artigo(s) disponíveis</span></div>
-<div class="news-layout"><section><form class="news-tools" method="get"><input type="search" name="q" value="<?= e($search) ?>" placeholder="Pesquisar notícias e temas..."><select name="categoria"><option value="0">Todas as categorias</option><?php foreach($categories as $cat): ?><option value="<?= (int)$cat['id'] ?>" <?= $categoryId===(int)$cat['id']?'selected':'' ?>><?= e($cat['name']) ?> (<?= (int)$cat['total'] ?>)</option><?php endforeach; ?></select><button type="submit"><i class="bi bi-search"></i> Pesquisar</button></form>
-<?php if($posts): ?><div class="news-grid"><?php foreach($posts as $p): ?><article class="news-card"><div class="cover"><?php if($p['cover_image']): ?><img loading="lazy" src="../<?= e($p['cover_image']) ?>" alt="<?= e($p['title']) ?>"><?php else: ?><div style="height:100%;display:grid;place-items:center;color:#8da4b8;font-size:38px"><i class="bi bi-buildings"></i></div><?php endif; ?></div><div class="news-card-body"><div class="news-meta"><span><?= e($p['category']??'Artigo') ?></span><span>·</span><span><?= e(date('d/m/Y',strtotime($p['published_at']))) ?></span></div><h3><?= e($p['title']) ?></h3><p><?= e(excerpt_text((string)$p['excerpt'],135)) ?></p><a class="read" href="post.php?slug=<?= rawurlencode($p['slug']) ?>">Continuar a ler <i class="bi bi-arrow-right"></i></a><div class="news-stats"><span><i class="bi bi-eye"></i> <?= (int)$p['views'] ?> visualizações</span><span><i class="bi bi-emoji-smile"></i> <?= (int)$p['reactions'] ?> reacções</span></div></div></article><?php endforeach; ?></div>
-<nav class="pagination" aria-label="Paginação"><?php if($page>1): ?><a href="<?= e(blog_url($page-1,$search,$categoryId)) ?>">Anterior</a><?php endif; ?><span class="current">Página <?= $page ?> de <?= $pages ?></span><?php if($page<$pages): ?><a href="<?= e(blog_url($page+1,$search,$categoryId)) ?>">Seguinte</a><?php endif; ?></nav>
+<div class="news-layout"><section><form class="news-tools" method="get"><input type="search" name="q" value="<?= e($search) ?>" placeholder="Pesquisar notícias e temas..."><select name="categoria"><option value="0">Todas as categorias</option><?php foreach ($categories as $cat): ?><option value="<?= (int)$cat['id'] ?>" <?= $categoryId === (int)$cat['id'] ? 'selected' : '' ?>><?= e($cat['name']) ?> (<?= (int)$cat['total'] ?>)</option><?php endforeach; ?></select><button type="submit"><i class="bi bi-search"></i> Pesquisar</button></form>
+<?php if ($posts): ?><div class="news-grid"><?php foreach ($posts as $p): ?><article class="news-card"><div class="cover"><?php if ($p['cover_image']): ?><img loading="lazy" src="../<?= e($p['cover_image']) ?>" alt="<?= e($p['title']) ?>"><?php else: ?><div style="height:100%;display:grid;place-items:center;color:#8da4b8;font-size:38px"><i class="bi bi-buildings"></i></div><?php endif; ?></div><div class="news-card-body"><div class="news-meta"><span><?= e($p['category'] ?? 'Artigo') ?></span><span>·</span><span><?= e(date('d/m/Y', strtotime($p['published_at']))) ?></span></div><h3><?= e($p['title']) ?></h3><p><?= e(excerpt_text((string)$p['excerpt'], 135)) ?></p><a class="read" href="post.php?slug=<?= rawurlencode($p['slug']) ?>">Continuar a ler <i class="bi bi-arrow-right"></i></a><div class="news-stats"><span><i class="bi bi-eye"></i> <?= (int)$p['views'] ?> visualizações</span><span><i class="bi bi-emoji-smile"></i> <?= (int)$p['reactions'] ?> reacções</span></div></div></article><?php endforeach; ?></div>
+<nav class="pagination" aria-label="Paginação"><?php if ($page > 1): ?><a href="<?= e(blog_url($page - 1, $search, $categoryId)) ?>">Anterior</a><?php endif; ?><span class="current">Página <?= $page ?> de <?= $pages ?></span><?php if ($page < $pages): ?><a href="<?= e(blog_url($page + 1, $search, $categoryId)) ?>">Seguinte</a><?php endif; ?></nav>
 <?php else: ?><div class="news-empty"><i class="bi bi-search" style="font-size:30px"></i><h2>Nenhum artigo encontrado</h2><p>Experimente outro termo ou seleccione uma categoria diferente.</p><a href="index.php">Limpar pesquisa</a></div><?php endif; ?></section>
-<aside class="news-sidebar"><section class="side-box"><h3>Explorar temas</h3><ul class="category-list"><?php foreach($categories as $cat): ?><li><a href="?categoria=<?= (int)$cat['id'] ?>"><?= e($cat['name']) ?></a><span><?= (int)$cat['total'] ?></span></li><?php endforeach; ?></ul></section><section class="side-box"><h3>Mais lidas</h3><ol class="popular-list"><?php foreach($popular as $item): ?><li><a href="post.php?slug=<?= rawurlencode($item['slug']) ?>"><?= e($item['title']) ?></a><small><i class="bi bi-eye"></i> <?= (int)$item['views'] ?> visualizações · <?= e(date('d/m/Y',strtotime($item['published_at']))) ?></small></li><?php endforeach; ?></ol></section><section class="side-box"><h3>Sobre este espaço</h3><p style="font-size:13px;line-height:1.7;color:#6b7d8f;margin:0">Um espaço editorial da Moz Construções para partilhar informação útil, boas práticas e novidades do sector da construção em Moçambique.</p></section></aside></div>
+<aside class="news-sidebar"><section class="side-box"><h3>Explorar temas</h3><ul class="category-list"><?php foreach ($categories as $cat): ?><li><a href="?categoria=<?= (int)$cat['id'] ?>"><?= e($cat['name']) ?></a><span><?= (int)$cat['total'] ?></span></li><?php endforeach; ?></ul></section><section class="side-box"><h3>Mais lidas</h3><ol class="popular-list"><?php foreach ($popular as $item): ?><li><a href="post.php?slug=<?= rawurlencode($item['slug']) ?>"><?= e($item['title']) ?></a><small><i class="bi bi-eye"></i> <?= (int)$item['views'] ?> visualizações · <?= e(date('d/m/Y', strtotime($item['published_at']))) ?></small></li><?php endforeach; ?></ol></section><section class="side-box"><h3>Sobre este espaço</h3><p style="font-size:13px;line-height:1.7;color:#6b7d8f;margin:0">Um espaço editorial da Moz Construções para partilhar informação útil, boas práticas e novidades do sector da construção em Moçambique.</p></section></aside></div>
 <footer class="news-footer"><div class="footer-main"><div><span class="footer-mark">MC<span>.</span></span><h2>Informação que<br>constrói o futuro.</h2><p>Conteúdos sobre construção, engenharia e desenvolvimento em Moçambique.</p></div><div class="footer-actions"><a class="footer-home" href="../index.php"><i class="bi bi-house-door-fill"></i> Voltar ao website principal <i class="bi bi-arrow-up-right"></i></a><div class="social-share"><span>PARTILHE ESTE ESPAÇO</span><a href="https://www.facebook.com/sharer/sharer.php?u=" data-share="facebook" aria-label="Partilhar no Facebook"><i class="bi bi-facebook"></i></a><a href="https://wa.me/?text=" data-share="whatsapp" aria-label="Partilhar no WhatsApp"><i class="bi bi-whatsapp"></i></a><a href="https://www.linkedin.com/sharing/share-offsite/?url=" data-share="linkedin" aria-label="Partilhar no LinkedIn"><i class="bi bi-linkedin"></i></a><a href="https://twitter.com/intent/tweet?url=" data-share="x" aria-label="Partilhar no X"><i class="bi bi-twitter-x"></i></a></div></div></div><div class="footer-bottom"><span>© <?= date('Y') ?> Moz Construções. Todos os direitos reservados. <strong>Design by Flyzinho</strong></span><a href="../index.php">Website institucional</a><a href="#topo" onclick="window.scrollTo({top:0,behavior:'smooth'});return false">Voltar ao topo ↑</a></div></footer></main>
-<?php if($latest): ?><script>
+<?php if ($latest): ?><script>
 (() => {
  const slider=document.querySelector('[data-news-slider]'); if(!slider)return;
- const items=<?= json_encode(array_map(static fn($p)=>['title'=>$p['title'],'excerpt'=>excerpt_text((string)$p['excerpt'],190),'category'=>($p['category']??'Notícia').' · '.date('d/m/Y',strtotime($p['published_at'])),'image'=>!empty($p['cover_image'])?'../'.$p['cover_image']:'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=1200&q=80','url'=>'post.php?slug='.$p['slug']],$latest),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
+ const items=<?= json_encode(array_map(static fn ($p) => ['title' => $p['title'],'excerpt' => excerpt_text((string)$p['excerpt'], 190),'category' => ($p['category'] ?? 'Notícia') . ' · ' . date('d/m/Y', strtotime($p['published_at'])),'image' => !empty($p['cover_image']) ? '../' . $p['cover_image'] : 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=1200&q=80','url' => 'post.php?slug=' . $p['slug']], $latest), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
  let index=0;const title=slider.querySelector('[data-slider-title]'),excerpt=slider.querySelector('[data-slider-excerpt]'),category=slider.querySelector('[data-slider-category]'),image=slider.querySelector('[data-slider-image]'),link=slider.querySelector('[data-slider-link]');
  function show(next){index=(next+items.length)%items.length;const item=items[index];title.textContent=item.title;excerpt.textContent=item.excerpt;category.textContent=item.category;image.src=item.image;image.alt=item.title;link.href=item.url;}
  slider.querySelector('[data-slider-prev]').addEventListener('click',()=>show(index-1));slider.querySelector('[data-slider-next]').addEventListener('click',()=>show(index+1));

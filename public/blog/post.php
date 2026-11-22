@@ -1,57 +1,132 @@
 <?php
+
+/**
+ * public/blog/post.php
+ * Código organizado e comentado para ser fácil de entender e manter.
+ * Assinado por Flyzinho — toque próprio, feito com cuidado.
+ */
+
+
 declare(strict_types=1);
 require_once __DIR__ . '/../../app/session.php';
 require_once __DIR__ . '/../../app/blog-notifications.php';
 $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
 $visitor = (string)($_COOKIE['moz_blog_visitor'] ?? '');
+
 if (!preg_match('/^[a-f0-9]{64}$/', $visitor)) {
     $visitor = bin2hex(random_bytes(32));
-    setcookie('moz_blog_visitor', $visitor, ['expires'=>time()+31536000,'path'=>'/','secure'=>$secure,'httponly'=>true,'samesite'=>'Lax']);
+    setcookie('moz_blog_visitor', $visitor, ['expires' => time() + 31536000,'path' => '/','secure' => $secure,'httponly' => true,'samesite' => 'Lax']);
     $_COOKIE['moz_blog_visitor'] = $visitor;
 }
-if (empty($_SESSION['google_login_csrf'])) $_SESSION['google_login_csrf']=bin2hex(random_bytes(32));
-$googleLoginCsrf=(string)$_SESSION['google_login_csrf'];
-if (empty($_SESSION['google_login_nonce'])) $_SESSION['google_login_nonce']=bin2hex(random_bytes(24));
-$googleLoginNonce=(string)$_SESSION['google_login_nonce'];
-if (empty($_SESSION['blog_reaction_csrf'])) $_SESSION['blog_reaction_csrf']=bin2hex(random_bytes(32));
-$reactionCsrf=(string)$_SESSION['blog_reaction_csrf'];
-$pdo=db();
-$slug=trim((string)($_GET['slug']??''));
-$q=$pdo->prepare("SELECT p.*,c.name category FROM blog_posts p LEFT JOIN blog_categories c ON c.id=p.category_id WHERE p.slug=? AND p.status='published' AND p.published_at<=NOW() LIMIT 1");
+
+if (empty($_SESSION['google_login_csrf'])) {
+    $_SESSION['google_login_csrf'] = bin2hex(random_bytes(32));
+}
+$googleLoginCsrf = (string)$_SESSION['google_login_csrf'];
+
+if (empty($_SESSION['google_login_nonce'])) {
+    $_SESSION['google_login_nonce'] = bin2hex(random_bytes(24));
+}
+$googleLoginNonce = (string)$_SESSION['google_login_nonce'];
+
+if (empty($_SESSION['blog_reaction_csrf'])) {
+    $_SESSION['blog_reaction_csrf'] = bin2hex(random_bytes(32));
+}
+$reactionCsrf = (string)$_SESSION['blog_reaction_csrf'];
+$pdo = db();
+$slug = trim((string)($_GET['slug'] ?? ''));
+$q = $pdo->prepare("SELECT p.*,c.name category FROM blog_posts p LEFT JOIN blog_categories c ON c.id=p.category_id WHERE p.slug=? AND p.status='published' AND p.published_at<=NOW() LIMIT 1");
 $q->execute([$slug]);
-$post=$q->fetch();
-if(!$post){http_response_code(404);exit('Artigo não encontrado.');}
+$post = $q->fetch();
+
+if (!$post) {
+    http_response_code(404);
+    exit('Artigo não encontrado.');
+}
 
 // Uma visualização por visitante e artigo. O identificador é aleatório e
 // apenas o seu hash é persistido; recarregar a página não duplica a contagem.
-$visitorHash=hash('sha256',$visitor);
-$viewInsert=$pdo->prepare('INSERT IGNORE INTO blog_post_views(post_id,visitor_hash) VALUES(?,?)');
+$visitorHash = hash('sha256', $visitor);
+$viewInsert = $pdo->prepare('INSERT IGNORE INTO blog_post_views(post_id,visitor_hash) VALUES(?,?)');
 $viewInsert->execute([(int)$post['id'],$visitorHash]);
-$viewsQuery=$pdo->prepare('SELECT COUNT(*) FROM blog_post_views WHERE post_id=?');
+$viewsQuery = $pdo->prepare('SELECT COUNT(*) FROM blog_post_views WHERE post_id=?');
 $viewsQuery->execute([(int)$post['id']]);
-$views=(int)$viewsQuery->fetchColumn();
-$reactionQuery=$pdo->prepare('SELECT reaction,COUNT(*) total FROM blog_post_reactions WHERE post_id=? GROUP BY reaction');
+$views = (int)$viewsQuery->fetchColumn();
+$reactionQuery = $pdo->prepare('SELECT reaction,COUNT(*) total FROM blog_post_reactions WHERE post_id=? GROUP BY reaction');
 $reactionQuery->execute([(int)$post['id']]);
-$reactionCounts=['like'=>0,'love'=>0,'useful'=>0,'insightful'=>0];
-foreach($reactionQuery->fetchAll() as $r)$reactionCounts[$r['reaction']]=(int)$r['total'];
-$mine=$pdo->prepare('SELECT reaction FROM blog_post_reactions WHERE post_id=? AND visitor_hash=? LIMIT 1');
-$mine->execute([(int)$post['id'],$visitorHash]);
-$myReaction=$mine->fetchColumn()?:null;
+$reactionCounts = ['like' => 0,'love' => 0,'useful' => 0,'insightful' => 0];
 
-$error='';$success='';
-if($_SERVER['REQUEST_METHOD']==='POST'){
- $user=$_SESSION['comment_user']??null;$token=(string)($_POST['csrf']??'');$expected=(string)($_SESSION['comment_csrf']??'');$comment=trim((string)($_POST['comment']??''));
- if(!$user){$error='Entre com a sua conta Google antes de comentar.';}elseif($expected===''||!hash_equals($expected,$token)){$error='Sessão inválida. Actualize a página.';}elseif(preg_match_all('/./us',$comment,$chars)===false||count($chars[0])<3||count($chars[0])>2000){$error='O comentário deve ter entre 3 e 2.000 caracteres.';}else{$recent=$pdo->prepare('SELECT id FROM blog_comments WHERE user_id=? AND post_id=? AND created_at>=DATE_SUB(NOW(),INTERVAL 60 SECOND) LIMIT 1');$recent->execute([$user['id'],$post['id']]);if($recent->fetch()){$error='Aguarde um minuto antes de enviar outro comentário.';}else{$ins=$pdo->prepare("INSERT INTO blog_comments(post_id,user_id,comment,status) VALUES(?,?,?,'pending')");$ins->execute([$post['id'],$user['id'],$comment]);$success='Comentário enviado. Ficará visível depois da aprovação da administração.';}}
+foreach ($reactionQuery->fetchAll() as $r) {
+    $reactionCounts[$r['reaction']] = (int)$r['total'];
 }
-$comments=$pdo->prepare("SELECT c.comment,c.created_at,u.name,u.avatar_url FROM blog_comments c JOIN comment_users u ON u.id=c.user_id WHERE c.post_id=? AND c.status='approved' ORDER BY c.created_at DESC");$comments->execute([$post['id']]);$comments=$comments->fetchAll();
-$notificationPreferences=['email_enabled'=>false,'push_enabled'=>false];
-if(!empty($_SESSION['comment_user']['id'])){$preferenceQuery=$pdo->prepare('SELECT email_enabled,push_enabled FROM blog_notification_preferences WHERE user_id=?');$preferenceQuery->execute([(int)$_SESSION['comment_user']['id']]);$savedPreferences=$preferenceQuery->fetch();if($savedPreferences)$notificationPreferences=['email_enabled'=>(bool)$savedPreferences['email_enabled'],'push_enabled'=>(bool)$savedPreferences['push_enabled']];}
-$emailNotificationsAvailable=blog_email_notifications_ready();$pushNotificationsAvailable=blog_push_notifications_ready();
-$relatedQuery=$pdo->prepare("SELECT title,slug,excerpt,cover_image,published_at FROM blog_posts WHERE status='published' AND published_at<=NOW() AND id<>? AND (category_id=? OR ? IS NULL) ORDER BY published_at DESC LIMIT 3");
-$relatedQuery->execute([(int)$post['id'],$post['category_id'],$post['category_id']]);$related=$relatedQuery->fetchAll();
-function e($v):string{return htmlspecialchars((string)$v,ENT_QUOTES | ENT_SUBSTITUTE,'UTF-8');}
-function render_blog_html(string $html): string { $html=strip_tags($html,'<p><br><h2><h3><h4><strong><b><em><i><ul><ol><li><blockquote>'); return preg_replace('/<([a-z0-9]+)\b[^>]*>/i','<$1>',$html) ?? ''; }
-?><!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="<?= e($post['excerpt']) ?>"><meta name="theme-color" content="#123b65"><meta property="og:type" content="article"><meta property="og:title" content="<?= e($post['title']) ?>"><meta property="og:description" content="<?= e($post['excerpt']) ?>"><?php if(!empty($post['cover_image'])): ?><meta property="og:image" content="<?= e(((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS']!=='off')?'https':'http').'://'.($_SERVER['HTTP_HOST']??'localhost').dirname(dirname($_SERVER['SCRIPT_NAME'])).'/'.$post['cover_image']) ?>"><?php endif; ?><title><?= e($post['title']) ?> | Moz Construções</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"><script src="https://accounts.google.com/gsi/client" async defer></script>
+$mine = $pdo->prepare('SELECT reaction FROM blog_post_reactions WHERE post_id=? AND visitor_hash=? LIMIT 1');
+$mine->execute([(int)$post['id'],$visitorHash]);
+$myReaction = $mine->fetchColumn() ?: null;
+
+$error = '';
+$success = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $user = $_SESSION['comment_user'] ?? null;
+    $token = (string)($_POST['csrf'] ?? '');
+    $expected = (string)($_SESSION['comment_csrf'] ?? '');
+    $comment = trim((string)($_POST['comment'] ?? ''));
+
+    if (!$user) {
+        $error = 'Entre com a sua conta Google antes de comentar.';
+    } elseif ($expected === '' || !hash_equals($expected, $token)) {
+        $error = 'Sessão inválida. Actualize a página.';
+    } elseif (preg_match_all('/./us', $comment, $chars) === false || count($chars[0]) < 3 || count($chars[0]) > 2000) {
+        $error = 'O comentário deve ter entre 3 e 2.000 caracteres.';
+    } else {
+        $recent = $pdo->prepare('SELECT id FROM blog_comments WHERE user_id=? AND post_id=? AND created_at>=DATE_SUB(NOW(),INTERVAL 60 SECOND) LIMIT 1');
+        $recent->execute([$user['id'],$post['id']]);
+
+        if ($recent->fetch()) {
+            $error = 'Aguarde um minuto antes de enviar outro comentário.';
+        } else {
+            $ins = $pdo->prepare("INSERT INTO blog_comments(post_id,user_id,comment,status) VALUES(?,?,?,'pending')");
+            $ins->execute([$post['id'],$user['id'],$comment]);
+            $success = 'Comentário enviado. Ficará visível depois da aprovação da administração.';
+        }
+    }
+}
+$comments = $pdo->prepare("SELECT c.comment,c.created_at,u.name,u.avatar_url FROM blog_comments c JOIN comment_users u ON u.id=c.user_id WHERE c.post_id=? AND c.status='approved' ORDER BY c.created_at DESC");
+$comments->execute([$post['id']]);
+$comments = $comments->fetchAll();
+$notificationPreferences = ['email_enabled' => false,'push_enabled' => false];
+
+if (!empty($_SESSION['comment_user']['id'])) {
+    $preferenceQuery = $pdo->prepare('SELECT email_enabled,push_enabled FROM blog_notification_preferences WHERE user_id=?');
+    $preferenceQuery->execute([(int)$_SESSION['comment_user']['id']]);
+    $savedPreferences = $preferenceQuery->fetch();
+
+    if ($savedPreferences) {
+        $notificationPreferences = ['email_enabled' => (bool)$savedPreferences['email_enabled'],'push_enabled' => (bool)$savedPreferences['push_enabled']];
+    }
+}
+$emailNotificationsAvailable = blog_email_notifications_ready();
+$pushNotificationsAvailable = blog_push_notifications_ready();
+$relatedQuery = $pdo->prepare("SELECT title,slug,excerpt,cover_image,published_at FROM blog_posts WHERE status='published' AND published_at<=NOW() AND id<>? AND (category_id=? OR ? IS NULL) ORDER BY published_at DESC LIMIT 3");
+$relatedQuery->execute([(int)$post['id'],$post['category_id'],$post['category_id']]);
+$related = $relatedQuery->fetchAll();
+/**
+ * Protege texto dinâmico antes de o enviar para a página do artigo.
+ */
+function e($v): string
+{
+    return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+/**
+ * Permite apenas etiquetas HTML seguras dentro do conteúdo escrito no blog.
+ */
+function render_blog_html(string $html): string
+{
+    $html = strip_tags($html, '<p><br><h2><h3><h4><strong><b><em><i><ul><ol><li><blockquote>');
+
+    return preg_replace('/<([a-z0-9]+)\b[^>]*>/i', '<$1>', $html) ?? '';
+}
+?><!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="<?= e($post['excerpt']) ?>"><meta name="theme-color" content="#123b65"><meta property="og:type" content="article"><meta property="og:title" content="<?= e($post['title']) ?>"><meta property="og:description" content="<?= e($post['excerpt']) ?>"><?php if (!empty($post['cover_image'])): ?><meta property="og:image" content="<?= e(((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . dirname(dirname($_SERVER['SCRIPT_NAME'])) . '/' . $post['cover_image']) ?>"><?php endif; ?><title><?= e($post['title']) ?> | Moz Construções</title><link rel="stylesheet" href="../assets/css/style.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"><script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 .blog-notification-panel{max-width:1240px;margin:0 auto 28px;padding:0 20px}.blog-notification-inner{display:flex;justify-content:space-between;align-items:center;gap:26px;padding:24px 28px;border:1px solid #d5e5f2;border-radius:14px;background:linear-gradient(120deg,#fff,#edf6fd);box-shadow:0 12px 30px #173b5e0d}.blog-notification-copy{max-width:570px}.blog-notification-kicker{display:inline-block;color:#1769aa;font-size:10px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase}.blog-notification-inner h2{font:700 22px/1.2 Georgia,serif;color:#123b65;margin:8px 0}.blog-notification-inner p{font-size:12px;line-height:1.7;color:#718293;margin:0}.blog-notification-form{display:grid;gap:10px;min-width:min(100%,360px)}.blog-notification-option{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border:1px solid #dce8f1;border-radius:9px;background:#fff;color:#25445f;font-size:12px;font-weight:700}.blog-notification-option input{margin:2px 0 0;accent-color:#2878c8}.blog-notification-option small{display:block;color:#8090a0;font-size:10px;font-weight:400;margin-top:3px}.blog-notification-option input:disabled{opacity:.55}.blog-notification-save{border:0;border-radius:8px;background:#1769aa;color:#fff;padding:12px 16px;font-weight:800;cursor:pointer;transition:transform .2s,background .2s}.blog-notification-save:hover{background:#123b65;transform:translateY(-2px)}.blog-notification-save:disabled{opacity:.65;cursor:wait;transform:none}.blog-notification-status{min-height:18px;color:#1769aa;font-size:11px}.blog-notification-login{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;background:#1769aa;color:#fff!important;padding:12px 16px;border-radius:8px;text-decoration:none!important;font-size:12px;font-weight:800}.blog-notification-login:hover{background:#123b65}@media(max-width:700px){.blog-notification-panel{padding:0 13px}.blog-notification-inner{display:grid;padding:20px;gap:18px}.blog-notification-form{min-width:0}.blog-notification-login{justify-content:center;white-space:normal}}@media(prefers-reduced-motion:reduce){.blog-notification-save{transition:none}.blog-notification-save:hover{transform:none}}
 </style>
@@ -63,12 +138,14 @@ function render_blog_html(string $html): string { $html=strip_tags($html,'<p><br
 @media(max-width:580px){.article-shell{padding:13px 13px 40px}.article-nav{align-items:flex-start}.article-main{padding:24px 18px}.article-main h1{font-size:34px}.article-content{font-size:16px}.article-blog-link{font-size:12px;padding:11px 13px}}
 @media(prefers-reduced-motion:reduce){.article-back,.article-socials a,.related-card,.reaction-btn{transition:none}.article-back:hover,.article-socials a:hover,.related-card:hover,.reaction-btn:hover{transform:none}}
 </style>
-</head><body class="article-page"><a class="article-skip" href="#artigo">Saltar para o artigo</a><main class="article-shell"><nav class="article-nav" aria-label="Navegação do artigo"><a class="article-back" href="../index.php"><span><i class="bi bi-house-door-fill"></i></span><span><small>MOZ CONSTRUÇÕES</small><strong>Voltar ao website</strong></span><i class="bi bi-arrow-up-right"></i></a><a class="article-blog-link" href="index.php"><i class="bi bi-journal-richtext"></i> Todas as notícias</a></nav><div class="article-layout"><article class="article-main" id="artigo"><div class="article-kicker"><?= e($post['category']??'Informação') ?> · Actualidade</div><h1><?= e($post['title']) ?></h1><p class="article-excerpt"><?= e($post['excerpt']) ?></p><div class="article-meta"><span><i class="bi bi-calendar3"></i> <?= e(date('d/m/Y',strtotime($post['published_at']))) ?></span><span><i class="bi bi-eye"></i> <strong id="viewCount"><?= $views ?></strong> visualizações</span><span><i class="bi bi-chat-dots"></i> <?= count($comments) ?> comentários</span></div><?php if($post['cover_image']): ?><img class="article-cover" src="../<?= e($post['cover_image']) ?>" alt="<?= e($post['title']) ?>"><?php endif; ?><div class="article-content"><?= render_blog_html((string)$post['content']) ?></div>
-<section class="engagement" aria-label="Reacções ao artigo"><h3>Qual é a tua reacção?</h3><p>A tua opinião ajuda outros leitores a descobrir conteúdos úteis.</p><div class="reaction-list" id="reactionList" data-post-id="<?= (int)$post['id'] ?>" data-csrf="<?= e($reactionCsrf) ?>"><?php $labels=['like'=>['👍','Gosto'],'love'=>['❤️','Adorei'],'useful'=>['💡','Útil'],'insightful'=>['👏','Interessante']];foreach($labels as $key=>$label): ?><button type="button" class="reaction-btn <?= $myReaction===$key?'active':'' ?>" data-reaction="<?= e($key) ?>" aria-pressed="<?= $myReaction===$key?'true':'false' ?>"><span><?= $label[0] ?></span><span><?= e($label[1]) ?></span><span class="reaction-count" data-count="<?= e($key) ?>"><?= (int)$reactionCounts[$key] ?></span></button><?php endforeach; ?></div><p id="reactionStatus" role="status" aria-live="polite"></p></section>
-<section class="comments"><h2>Comentários (<?= count($comments) ?>)</h2><?php foreach($comments as $c): ?><div class="comment"><b><?= e($c['name']) ?></b> <small>· <?= date('d/m/Y H:i',strtotime($c['created_at'])) ?></small><p><?= nl2br(e($c['comment'])) ?></p></div><?php endforeach; ?><?php if($error): ?><div class="notice error"><?= e($error) ?></div><?php endif; ?><?php if($success): ?><div class="notice success"><?= e($success) ?></div><?php endif; ?><h3>Deixe o seu comentário</h3><?php if(empty($_SESSION['comment_user'])): ?><p>Entre com a sua conta Google para comentar.</p><?php if(GOOGLE_CLIENT_ID !== ''): ?><div id="g_id_onload" data-client_id="<?= e(GOOGLE_CLIENT_ID) ?>" data-nonce="<?= e($googleLoginNonce) ?>" data-callback="handleGoogleCredential" data-auto_prompt="false"></div><div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div><p id="googleStatus"></p><?php else: ?><p class="notice">O acesso Google será activado após a configuração do Client ID.</p><?php endif; ?><?php else: ?><p>Ligado como <b><?= e($_SESSION['comment_user']['name']) ?></b> · <a href="../auth/logout.php">Sair</a></p><?php endif; ?><?php if(!empty($_SESSION['comment_user'])): ?><form class="comment-form" method="post"><input type="hidden" name="csrf" value="<?= e($_SESSION['comment_csrf']??'') ?>"><textarea name="comment" rows="4" maxlength="2000" required placeholder="Escreva o seu comentário..."></textarea><p><button class="btn btn-primary" type="submit">Enviar comentário</button></p></form><?php endif; ?></section></article>
+</head><body class="article-page"><a class="article-skip" href="#artigo">Saltar para o artigo</a><main class="article-shell"><nav class="article-nav" aria-label="Navegação do artigo"><a class="article-back" href="../index.php"><span><i class="bi bi-house-door-fill"></i></span><span><small>MOZ CONSTRUÇÕES</small><strong>Voltar ao website</strong></span><i class="bi bi-arrow-up-right"></i></a><a class="article-blog-link" href="index.php"><i class="bi bi-journal-richtext"></i> Todas as notícias</a></nav><div class="article-layout"><article class="article-main" id="artigo"><div class="article-kicker"><?= e($post['category'] ?? 'Informação') ?> · Actualidade</div><h1><?= e($post['title']) ?></h1><p class="article-excerpt"><?= e($post['excerpt']) ?></p><div class="article-meta"><span><i class="bi bi-calendar3"></i> <?= e(date('d/m/Y', strtotime($post['published_at']))) ?></span><span><i class="bi bi-eye"></i> <strong id="viewCount"><?= $views ?></strong> visualizações</span><span><i class="bi bi-chat-dots"></i> <?= count($comments) ?> comentários</span></div><?php if ($post['cover_image']): ?><img class="article-cover" src="../<?= e($post['cover_image']) ?>" alt="<?= e($post['title']) ?>"><?php endif; ?><div class="article-content"><?= render_blog_html((string)$post['content']) ?></div>
+<section class="engagement" aria-label="Reacções ao artigo"><h3>Qual é a tua reacção?</h3><p>A tua opinião ajuda outros leitores a descobrir conteúdos úteis.</p><div class="reaction-list" id="reactionList" data-post-id="<?= (int)$post['id'] ?>" data-csrf="<?= e($reactionCsrf) ?>"><?php $labels = ['like' => ['👍','Gosto'],'love' => ['❤️','Adorei'],'useful' => ['💡','Útil'],'insightful' => ['👏','Interessante']];
+
+foreach ($labels as $key => $label): ?><button type="button" class="reaction-btn <?= $myReaction === $key ? 'active' : '' ?>" data-reaction="<?= e($key) ?>" aria-pressed="<?= $myReaction === $key ? 'true' : 'false' ?>"><span><?= $label[0] ?></span><span><?= e($label[1]) ?></span><span class="reaction-count" data-count="<?= e($key) ?>"><?= (int)$reactionCounts[$key] ?></span></button><?php endforeach; ?></div><p id="reactionStatus" role="status" aria-live="polite"></p></section>
+<section class="comments"><h2>Comentários (<?= count($comments) ?>)</h2><?php foreach ($comments as $c): ?><div class="comment"><b><?= e($c['name']) ?></b> <small>· <?= date('d/m/Y H:i', strtotime($c['created_at'])) ?></small><p><?= nl2br(e($c['comment'])) ?></p></div><?php endforeach; ?><?php if ($error): ?><div class="notice error"><?= e($error) ?></div><?php endif; ?><?php if ($success): ?><div class="notice success"><?= e($success) ?></div><?php endif; ?><h3>Deixe o seu comentário</h3><?php if (empty($_SESSION['comment_user'])): ?><p>Entre com a sua conta Google para comentar.</p><?php if (GOOGLE_CLIENT_ID !== ''): ?><div id="g_id_onload" data-client_id="<?= e(GOOGLE_CLIENT_ID) ?>" data-nonce="<?= e($googleLoginNonce) ?>" data-callback="handleGoogleCredential" data-auto_prompt="false"></div><div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large"></div><p id="googleStatus"></p><?php else: ?><p class="notice">O acesso Google será activado após a configuração do Client ID.</p><?php endif; ?><?php else: ?><p>Ligado como <b><?= e($_SESSION['comment_user']['name']) ?></b> · <a href="../auth/logout.php">Sair</a></p><?php endif; ?><?php if (!empty($_SESSION['comment_user'])): ?><form class="comment-form" method="post"><input type="hidden" name="csrf" value="<?= e($_SESSION['comment_csrf'] ?? '') ?>"><textarea name="comment" rows="4" maxlength="2000" required placeholder="Escreva o seu comentário..."></textarea><p><button class="btn btn-primary" type="submit">Enviar comentário</button></p></form><?php endif; ?></section></article>
 <aside class="article-side"><section class="side-box"><h3>Sobre este artigo</h3><p>Conteúdo informativo da Moz Construções sobre construção civil, engenharia e boas práticas no contexto moçambicano.</p><p><i class="bi bi-eye"></i> <?= $views ?> visualizações</p><p><i class="bi bi-emoji-smile"></i> <?= array_sum($reactionCounts) ?> reacções</p></section><section class="side-box"><h3>Partilhe esta informação</h3><p>Envie este artigo para colegas e profissionais do sector.</p><button class="btn btn-primary" type="button" id="shareArticle"><i class="bi bi-share"></i> Mais opções</button><div class="article-socials"><a data-article-share="whatsapp" href="#" aria-label="Partilhar no WhatsApp"><i class="bi bi-whatsapp"></i></a><a data-article-share="facebook" href="#" aria-label="Partilhar no Facebook"><i class="bi bi-facebook"></i></a><a data-article-share="linkedin" href="#" aria-label="Partilhar no LinkedIn"><i class="bi bi-linkedin"></i></a><a data-article-share="x" href="#" aria-label="Partilhar no X"><i class="bi bi-twitter-x"></i></a></div><p id="shareStatus" role="status"></p></section></aside></div>
-<?php if($related): ?><section class="related"><h2>Continue a ler</h2><div class="related-grid"><?php foreach($related as $r): ?><article class="related-card"><?php if($r['cover_image']): ?><img loading="lazy" src="../<?= e($r['cover_image']) ?>" alt="<?= e($r['title']) ?>"><?php endif; ?><div><a href="post.php?slug=<?= rawurlencode($r['slug']) ?>"><?= e($r['title']) ?></a><p><?= e(date('d/m/Y',strtotime($r['published_at']))) ?></p></div></article><?php endforeach; ?></div></section><?php endif; ?></main>
-<section class="blog-notification-panel" aria-label="Notificações do blog"><div class="blog-notification-inner"><div class="blog-notification-copy"><span class="blog-notification-kicker">Novos conteúdos</span><h2>Receba novidades do blog</h2><?php if(empty($_SESSION['comment_user'])): ?><p>Associe a sua conta Google para receber avisos de novos artigos por e-mail ou no navegador. A adesão é opcional e pode ser alterada a qualquer momento.</p><?php else: ?><p>Escolha como quer receber avisos de novos artigos. Pode alterar ou cancelar a sua adesão quando quiser.</p><?php endif; ?><?php if(!$emailNotificationsAvailable&&!$pushNotificationsAvailable): ?><p class="notice">Os canais de notificação estão a aguardar configuração.</p><?php endif; ?></div><?php if(empty($_SESSION['comment_user'])): ?><div class="blog-notification-login"><i class="bi bi-google"></i> <?= GOOGLE_CLIENT_ID!==''?'Entre com Google na área de comentários para activar':'O acesso Google ainda aguarda configuração.' ?></div><?php else: ?><form class="blog-notification-form" id="blogNotificationForm" data-csrf="<?= e($_SESSION['comment_csrf']??'') ?>" data-vapid-public-key="<?= e(VAPID_PUBLIC_KEY) ?>" data-email-available="<?= $emailNotificationsAvailable?'1':'0' ?>" data-push-available="<?= $pushNotificationsAvailable?'1':'0' ?>"><label class="blog-notification-option"><input id="emailNotification" type="checkbox" <?= $notificationPreferences['email_enabled']?'checked':'' ?> <?= !$emailNotificationsAvailable&&!$notificationPreferences['email_enabled']?'disabled':'' ?>><span>Receber por e-mail<small><?= e($_SESSION['comment_user']['email']??'Conta Google') ?><?= !$emailNotificationsAvailable?' · Configuração de e-mail pendente':'' ?></small></span></label><label class="blog-notification-option"><input id="pushNotification" type="checkbox" <?= $notificationPreferences['push_enabled']?'checked':'' ?> <?= !$pushNotificationsAvailable&&!$notificationPreferences['push_enabled']?'disabled':'' ?>><span>Notificações no navegador<small><?= !$pushNotificationsAvailable?'Configuração push pendente':'Pedir autorização apenas ao activar' ?></small></span></label><button class="blog-notification-save" type="submit">Guardar preferências</button><p class="blog-notification-status" id="blogNotificationStatus" role="status" aria-live="polite"></p></form><?php endif; ?></div></section>
+<?php if ($related): ?><section class="related"><h2>Continue a ler</h2><div class="related-grid"><?php foreach ($related as $r): ?><article class="related-card"><?php if ($r['cover_image']): ?><img loading="lazy" src="../<?= e($r['cover_image']) ?>" alt="<?= e($r['title']) ?>"><?php endif; ?><div><a href="post.php?slug=<?= rawurlencode($r['slug']) ?>"><?= e($r['title']) ?></a><p><?= e(date('d/m/Y', strtotime($r['published_at']))) ?></p></div></article><?php endforeach; ?></div></section><?php endif; ?></main>
+<section class="blog-notification-panel" aria-label="Notificações do blog"><div class="blog-notification-inner"><div class="blog-notification-copy"><span class="blog-notification-kicker">Novos conteúdos</span><h2>Receba novidades do blog</h2><?php if (empty($_SESSION['comment_user'])): ?><p>Associe a sua conta Google para receber avisos de novos artigos por e-mail ou no navegador. A adesão é opcional e pode ser alterada a qualquer momento.</p><?php else: ?><p>Escolha como quer receber avisos de novos artigos. Pode alterar ou cancelar a sua adesão quando quiser.</p><?php endif; ?><?php if (!$emailNotificationsAvailable && !$pushNotificationsAvailable): ?><p class="notice">Os canais de notificação estão a aguardar configuração.</p><?php endif; ?></div><?php if (empty($_SESSION['comment_user'])): ?><div class="blog-notification-login"><i class="bi bi-google"></i> <?= GOOGLE_CLIENT_ID !== '' ? 'Entre com Google na área de comentários para activar' : 'O acesso Google ainda aguarda configuração.' ?></div><?php else: ?><form class="blog-notification-form" id="blogNotificationForm" data-csrf="<?= e($_SESSION['comment_csrf'] ?? '') ?>" data-vapid-public-key="<?= e(VAPID_PUBLIC_KEY) ?>" data-email-available="<?= $emailNotificationsAvailable ? '1' : '0' ?>" data-push-available="<?= $pushNotificationsAvailable ? '1' : '0' ?>"><label class="blog-notification-option"><input id="emailNotification" type="checkbox" <?= $notificationPreferences['email_enabled'] ? 'checked' : '' ?> <?= !$emailNotificationsAvailable && !$notificationPreferences['email_enabled'] ? 'disabled' : '' ?>><span>Receber por e-mail<small><?= e($_SESSION['comment_user']['email'] ?? 'Conta Google') ?><?= !$emailNotificationsAvailable ? ' · Configuração de e-mail pendente' : '' ?></small></span></label><label class="blog-notification-option"><input id="pushNotification" type="checkbox" <?= $notificationPreferences['push_enabled'] ? 'checked' : '' ?> <?= !$pushNotificationsAvailable && !$notificationPreferences['push_enabled'] ? 'disabled' : '' ?>><span>Notificações no navegador<small><?= !$pushNotificationsAvailable ? 'Configuração push pendente' : 'Pedir autorização apenas ao activar' ?></small></span></label><button class="blog-notification-save" type="submit">Guardar preferências</button><p class="blog-notification-status" id="blogNotificationStatus" role="status" aria-live="polite"></p></form><?php endif; ?></div></section>
 <script>
 const reactionBox=document.getElementById('reactionList');
 if(reactionBox){reactionBox.addEventListener('click',async(event)=>{const button=event.target.closest('button[data-reaction]');if(!button)return;const status=document.getElementById('reactionStatus');reactionBox.querySelectorAll('button').forEach(b=>b.disabled=true);try{const body=new URLSearchParams({post_id:reactionBox.dataset.postId,reaction:button.dataset.reaction,csrf:reactionBox.dataset.csrf});const response=await fetch('react.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','X-Requested-With':'XMLHttpRequest'},body,credentials:'same-origin'});const data=await response.json();if(!response.ok||!data.ok)throw new Error(data.message||'Não foi possível guardar a reacção.');reactionBox.querySelectorAll('button').forEach(b=>{const active=data.selected===b.dataset.reaction;b.classList.toggle('active',active);b.setAttribute('aria-pressed',active?'true':'false');b.querySelector('[data-count]').textContent=data.counts[b.dataset.reaction]??0;});status.textContent=data.selected?'Reacção registada.':'Reacção removida.';}catch(error){status.textContent=error.message;}finally{reactionBox.querySelectorAll('button').forEach(b=>b.disabled=false);}});}

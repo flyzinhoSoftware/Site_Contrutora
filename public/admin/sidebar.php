@@ -1,4 +1,12 @@
 <?php
+
+/**
+ * public/admin/sidebar.php
+ * Código organizado e comentado para ser fácil de entender e manter.
+ * Assinado por Flyzinho — toque próprio, feito com cuidado.
+ */
+
+
 $adminPage = $adminPage ?? 'inicio';
 $adminBlogPage = in_array($adminPage, ['blog', 'blog_create'], true);
 $adminCompanyName = isset($settings) && is_array($settings) ? (string)($settings['company_name'] ?? 'Moz Construções') : 'Moz Construções';
@@ -17,7 +25,7 @@ $adminCompanyName = isset($settings) && is_array($settings) ? (string)($settings
       ['pedidos','Pedidos de orçamento','bi-inbox'],
       ['configuracoes','Conteúdos e contactos','bi-gear'],
     ] as [$navPage,$navLabel,$navIcon]): ?>
-        <a href="<?= $navPage === 'inicio' ? 'dashboard.php' : 'dashboard.php?page='.$navPage ?>"
+        <a href="<?= $navPage === 'inicio' ? 'dashboard.php' : 'dashboard.php?page=' . $navPage ?>"
             <?= $adminPage === $navPage ? 'aria-current="page"' : '' ?>><i
                 class="bi <?= admin_escape($navIcon) ?>"></i><?= admin_escape($navLabel) ?></a>
         <?php endforeach; ?>

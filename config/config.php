@@ -1,4 +1,13 @@
 <?php
+
+/**
+ * config/config.php
+ * Código organizado e comentado para ser fácil de entender e manter.
+ * Assinado por Flyzinho — toque próprio, feito com cuidado.
+ */
+
+
+
 declare(strict_types=1);
 define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
 define('DB_NAME', getenv('DB_NAME') ?: 'obraforte_db');
